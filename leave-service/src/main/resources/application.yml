@@ -1,0 +1,80 @@
+server:
+  port: 8083
+spring:
+  application:
+    name: leave-service
+  datasource:
+    url: jdbc:h2:mem:leavedb;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: password
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    open-in-view: false
+  kafka:
+    bootstrap-servers: kafka:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+      properties:
+        enable.idempotence: true
+eureka:
+  client:
+    service-url:
+      defaultZone: http://eureka-server:8761/eureka/
+  instance:
+    prefer-ip-address: false
+    instance-id: ${spring.application.name}:${server.port}
+    hostname: leave-service
+    lease-renewal-interval-in-seconds: 5
+    lease-expiration-duration-in-seconds: 15
+resilience4j:
+  circuitbreaker:
+    instances:
+      employee-service:
+        register-health-indicator: true
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        failure-rate-threshold: 50           # Open if ≥50% of last 10 calls fail
+        wait-duration-in-open-state: 15s     # Stay OPEN for 15s then go HALF-OPEN
+        permitted-number-of-calls-in-half-open-state: 3
+        slow-call-duration-threshold: 3s
+        slow-call-rate-threshold: 80
+        minimum-number-of-calls: 5
+        automatic-transition-from-open-to-half-open-enabled: true
+  retry:
+    instances:
+      employee-service:
+        max-attempts: 3
+        wait-duration: 500ms
+        retry-exceptions:
+          - feign.FeignException
+          - java.net.ConnectException
+          - com.lms.leave.exception.ServiceUnavailableException
+  timelimiter:
+    instances:
+      employee-service:
+        timeout-duration: 5s
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,circuitbreakers,circuitbreakerevents,retries
+  health:
+    circuitbreakers:
+      enabled: true
+
+logging:
+  level:
+    com.lms: INFO
+    io.github.resilience4j: DEBUG
+
+logstash:
+  host: logstash
+  port: 5044

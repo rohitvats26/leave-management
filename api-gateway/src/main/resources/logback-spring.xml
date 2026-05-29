@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <springProperty scope="context" name="SERVICE_NAME" source="spring.application.name"/>
+  <springProperty scope="context" name="LOGSTASH_HOST" source="logstash.host" defaultValue="logstash"/>
+  <springProperty scope="context" name="LOGSTASH_PORT" source="logstash.port" defaultValue="5044"/>
+
+  <!-- Console appender — human-readable during development -->
+  <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level [%X{traceId},%X{spanId}] %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <!-- Logstash appender — JSON over TCP to ELK pipeline -->
+  <appender name="LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
+    <destination>${LOGSTASH_HOST}:${LOGSTASH_PORT}</destination>
+    <reconnectionDelay>10 seconds</reconnectionDelay>
+    <connectionTimeout>5 seconds</connectionTimeout>
+    <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+      <!-- Extra fields indexed in Elasticsearch -->
+      <customFields>{"service":"${SERVICE_NAME}","env":"docker"}</customFields>
+      <fieldNames>
+        <timestamp>@timestamp</timestamp>
+        <message>message</message>
+        <logger>logger</logger>
+        <thread>thread</thread>
+        <level>level</level>
+      </fieldNames>
+      <includeContext>true</includeContext>
+      <includeMdc>true</includeMdc>
+    </encoder>
+  </appender>
+
+  <!-- Async wrapper around Logstash to avoid blocking request threads -->
+  <appender name="ASYNC_LOGSTASH" class="ch.qos.logback.classic.AsyncAppender">
+    <appender-ref ref="LOGSTASH"/>
+    <queueSize>512</queueSize>
+    <discardingThreshold>0</discardingThreshold>
+    <neverBlock>true</neverBlock>
+  </appender>
+
+  <root level="INFO">
+    <appender-ref ref="CONSOLE"/>
+    <appender-ref ref="ASYNC_LOGSTASH"/>
+  </root>
+
+  <logger name="com.lms" level="DEBUG"/>
+  <logger name="org.springframework.web" level="INFO"/>
+  <logger name="org.hibernate.SQL" level="WARN"/>
+</configuration>

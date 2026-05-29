@@ -1,0 +1,18 @@
+package com.lms.notification.dto;
+
+import lombok.*;
+
+import java.time.*;
+import java.util.UUID;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class LeaveEvent {
+    private String eventType;
+    private UUID leaveRequestId, employeeId, managerId;
+    private String leaveType, status, reason, rejectionReason, comments;
+    private LocalDate startDate, endDate;
+    private int numberOfDays;
+    private LocalDateTime timestamp;
+}

@@ -1,0 +1,290 @@
+version: '3.8'
+
+# ════════════════════════════════════════════════════════════════════
+#  Leave Management System — docker-compose
+#  Spring Boot 4 | Kafka | Resilience4j | ELK Stack
+# ════════════════════════════════════════════════════════════════════
+
+services:
+
+  # ── ELK STACK ──────────────────────────────────────────────────────
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
+    container_name: elasticsearch
+    hostname: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    networks:
+      - lms-network
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.13.0
+    container_name: logstash
+    hostname: logstash
+    ports:
+      - "5044:5044"
+      - "9600:9600"
+    volumes:
+      - ./elk/logstash/pipeline:/usr/share/logstash/pipeline:ro
+      - ./elk/logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+    environment:
+      - LS_JAVA_OPTS=-Xms256m -Xmx256m
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9600/_node/stats"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    networks:
+      - lms-network
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.13.0
+    container_name: kibana
+    hostname: kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - xpack.security.enabled=false
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5601/api/status"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+    networks:
+      - lms-network
+
+  # ── KAFKA (KRaft mode — no Zookeeper) ──────────────────────────────
+
+  kafka:
+    image: apache/kafka:4.3.0
+    container_name: kafka
+    hostname: kafka
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    environment:
+      # KRaft — Zookeeper-free
+      - KAFKA_NODE_ID=1
+      - KAFKA_PROCESS_ROLES=broker,controller
+      # Listeners
+      - KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+      # Topics auto-create
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+      - KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1
+      - KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=1
+      - KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0
+      - KAFKA_NUM_PARTITIONS=1
+      # Retention
+      - KAFKA_LOG_RETENTION_HOURS=24
+    healthcheck:
+      test: [
+        "CMD-SHELL",
+        "./opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1",
+      ]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    networks:
+      - lms-network
+
+  # Optional: Kafka UI for topic/message inspection
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "8090:8080"
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=lms-cluster
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - lms-network
+
+  # ── SERVICE DISCOVERY ───────────────────────────────────────────────
+
+  eureka-server:
+    build: ./eureka-server
+    container_name: eureka-server
+    hostname: eureka-server
+    ports:
+      - "8761:8761"
+    environment:
+      SPRING_APPLICATION_NAME: eureka-server
+      LOGSTASH_HOST: logstash
+    depends_on:
+      logstash:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8761/actuator/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    networks:
+      - lms-network
+
+  # ── CORE MICROSERVICES ──────────────────────────────────────────────
+
+  auth-service:
+    build: ./auth-service
+    container_name: auth-service
+    hostname: auth-service
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_APPLICATION_NAME: auth-service
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      EUREKA_INSTANCE_HOSTNAME: auth-service
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "false"
+      JWT_SECRET: lms-super-secret-key-must-be-at-least-256-bits-long-for-hs256
+      LOGSTASH_HOST: logstash
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8081/actuator/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    networks:
+      - lms-network
+
+  employee-service:
+    build: ./employee-service
+    container_name: employee-service
+    hostname: employee-service
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_APPLICATION_NAME: employee-service
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      EUREKA_INSTANCE_HOSTNAME: employee-service
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "false"
+      LOGSTASH_HOST: logstash
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8082/actuator/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    networks:
+      - lms-network
+
+  leave-service:
+    build: ./leave-service
+    container_name: leave-service
+    hostname: leave-service
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_APPLICATION_NAME: leave-service
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      EUREKA_INSTANCE_HOSTNAME: leave-service
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "false"
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      LOGSTASH_HOST: logstash
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      employee-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8083/actuator/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    networks:
+      - lms-network
+
+  notification-service:
+    build: ./notification-service
+    container_name: notification-service
+    hostname: notification-service
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_APPLICATION_NAME: notification-service
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      EUREKA_INSTANCE_HOSTNAME: notification-service
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "false"
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      LOGSTASH_HOST: logstash
+    depends_on:
+      kafka:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8085/actuator/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    networks:
+      - lms-network
+
+  # ── API GATEWAY — starts last ───────────────────────────────────────
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    hostname: api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_APPLICATION_NAME: api-gateway
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      EUREKA_INSTANCE_HOSTNAME: api-gateway
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "false"
+      JWT_SECRET: lms-super-secret-key-must-be-at-least-256-bits-long-for-hs256
+      LOGSTASH_HOST: logstash
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      employee-service:
+        condition: service_healthy
+      leave-service:
+        condition: service_healthy
+      notification-service:
+        condition: service_healthy
+    networks:
+      - lms-network
+
+volumes:
+  elasticsearch_data:
+    driver: local
+  kafka_data:
+    driver: local
+
+networks:
+  lms-network:
+    driver: bridge

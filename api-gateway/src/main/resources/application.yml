@@ -1,0 +1,93 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true   # auth-service not AUTH-SERVICE
+      routes:
+        - id: auth-service
+          uri: lb://auth-service
+          predicates:
+            - Path=/auth/**
+
+        - id: employee-service
+          uri: lb://employee-service
+          predicates:
+            - Path=/employees/**
+          filters:
+            - JwtAuthFilter
+
+        - id: leave-service
+          uri: lb://leave-service
+          predicates:
+            - Path=/leaves/**
+          filters:
+            - JwtAuthFilter
+
+        - id: manager-service
+          uri: lb://manager-service
+          predicates:
+            - Path=/manager/**
+          filters:
+            - JwtAuthFilter
+
+        - id: notification-service
+          uri: lb://notification-service
+          predicates:
+            - Path=/notifications/**
+          filters:
+            - JwtAuthFilter
+
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+
+    loadbalancer:
+      ribbon:
+        enabled: false
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://eureka-server:8761/eureka/
+    fetch-registry: true
+    register-with-eureka: true
+    registry-fetch-interval-seconds: 5
+  instance:
+    prefer-ip-address: false
+    hostname: api-gateway
+    lease-renewal-interval-in-seconds: 5
+    lease-expiration-duration-in-seconds: 15
+
+jwt:
+  secret: lms-super-secret-key-must-be-at-least-256-bits-long-for-hs256
+  expiration: 86400000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+
+logging:
+  level:
+    com.lms: DEBUG
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.cloud.loadbalancer: DEBUG
+
+logstash:
+  host: logstash
+  port: 5044

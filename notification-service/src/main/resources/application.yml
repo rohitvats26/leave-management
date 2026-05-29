@@ -1,0 +1,48 @@
+server:
+  port: 8085
+spring:
+  application:
+    name: notification-service
+  datasource:
+    url: jdbc:h2:mem:notificationdb;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: password
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+  kafka:
+    bootstrap-servers: kafka:9092
+    consumer:
+      group-id: notification-service-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      enable-auto-commit: false
+      properties:
+        spring.json.trusted.packages: "com.lms.leave.messaging,com.lms.notification.dto"
+        spring.json.use.type.headers: false
+        spring.json.value.default.type: com.lms.notification.dto.LeaveEvent
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://eureka-server:8761/eureka/
+  instance:
+    prefer-ip-address: false
+    instance-id: ${spring.application.name}:${server.port}
+    hostname: notification-service
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+logging:
+  level:
+    com.lms: INFO
+
+logstash:
+  host: logstash
+  port: 5044

@@ -1,0 +1,46 @@
+server:
+  port: 8082
+spring:
+  application:
+    name: employee-service
+  datasource:
+    url: jdbc:h2:mem:employeedb;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: password
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+eureka:
+  client:
+    service-url:
+      defaultZone: http://eureka-server:8761/eureka/
+  instance:
+    prefer-ip-address: false
+    instance-id: ${spring.application.name}:${server.port}
+    hostname: employee-service
+resilience4j:
+  circuitbreaker:
+    instances:
+      leave-service:
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+logging:
+  level:
+    com.lms: INFO
+
+logstash:
+  host: logstash
+  port: 5044

@@ -1,0 +1,27 @@
+server:
+  port: 8084
+spring:
+  application:
+    name: manager-service
+eureka:
+  client:
+    service-url:
+      defaultZone: http://eureka-server:8761/eureka/
+  instance:
+    prefer-ip-address: false
+    instance-id: ${spring.application.name}:${server.port}
+    hostname: manager-service
+resilience4j:
+  circuitbreaker:
+    instances:
+      leave-service:
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+logging:
+  level:
+    com.lms: INFO
