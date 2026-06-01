@@ -24,6 +24,7 @@ public class NotificationLog {
     @Column(nullable = false, length = 1000)
     private String message;
     private UUID leaveRequestId;
+    @Builder.Default
     private boolean isRead = false;
     @Column(updatable = false)
     private LocalDateTime createdAt;

@@ -32,14 +32,14 @@ All services start in dependency order (~3 min first run, ~90s warm rebuild).
 | anita.gupta    | Password@123   | ROLE_MANAGER   |
 
 ## Key URLs
-| URL                                        | Purpose                     |
-|--------------------------------------------|-----------------------------|
-| http://localhost:8080/auth/login           | Login                       |
-| http://localhost:8761                      | Eureka dashboard            |
-| http://localhost:8090                      | Kafka UI                    |
-| http://localhost:5601                      | Kibana (ELK)                |
-| http://localhost:9200/_cluster/health      | Elasticsearch health        |
-| http://localhost:8083/actuator/circuitbreakers | Circuit breaker states  |
+| URL                                             | Purpose                  |
+|-------------------------------------------------|--------------------------|
+| http://localhost:8080/auth/login                | Login                    |
+| http://localhost:8761                           | Eureka dashboard         |
+| http://localhost:8090                           | Kafka UI                 |
+| http://localhost:5601                           | Kibana (ELK)             |
+| http://localhost:9200/_cluster/health           | Elasticsearch health     |
+| http://localhost:8083/actuator/circuitbreakers  | Circuit breaker states   |
 
 ## Kibana Setup (first run)
 1. Open http://localhost:5601
@@ -63,10 +63,10 @@ GET http://localhost:8083/actuator/circuitbreakerevents
 ```
 
 ## Environment Variables
-| Variable                          | Default Value                                              |
-|-----------------------------------|------------------------------------------------------------|
-| JWT_SECRET                        | lms-super-secret-key-...                                   |
-| SPRING_KAFKA_BOOTSTRAP_SERVERS    | kafka:9092                                                 |
-| EUREKA_CLIENT_SERVICEURL_DEFAULTZONE | http://eureka-server:8761/eureka/                       |
-| LOGSTASH_HOST                     | logstash                                                   |
-| LOGSTASH_PORT                     | 5044                                                       |
+| Variable                             | Default Value                     |
+|--------------------------------------|-----------------------------------|
+| JWT_SECRET                           | lms-super-secret-key-...          |
+| SPRING_KAFKA_BOOTSTRAP_SERVERS       | kafka:9092                        |
+| EUREKA_CLIENT_SERVICEURL_DEFAULTZONE | http://eureka-server:8761/eureka/ |
+| LOGSTASH_HOST                        | logstash                          |
+| LOGSTASH_PORT                        | 5044                              |

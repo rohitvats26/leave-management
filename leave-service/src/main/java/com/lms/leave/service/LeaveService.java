@@ -37,7 +37,7 @@ public class LeaveService {
             throw new ValidationException("numberOfDays mismatch: expected " + days);
 
         if (!leaveRepo.findOverlapping(empId, req.getStartDate(), req.getEndDate()).isEmpty())
-            throw new OverlapException("Overlapping leave request exists for the given date range");
+            throw new OverlapException("leave request already exists for the given date range");
 
         // Circuit-breaker wrapped balance check
         boolean sufficient = employeeClientService.checkBalance(
