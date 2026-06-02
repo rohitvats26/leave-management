@@ -24,7 +24,7 @@ INSERT INTO employees (id, first_name, last_name, email, username, department, m
 -- 1 APPROVED casual leave (3 days) already taken → used=3, remaining=9
 INSERT INTO leave_balances (id, employee_id, leave_type, allocated, used) VALUES
   ('aa000001-0000-0000-0000-000000000001',
-   '550e8400-e29b-41d4-a716-446655440001', 'CASUAL',    12, 3),
+   '550e8400-e29b-41d4-a716-446655440001', 'CASUAL',    12, 0),
   ('aa000001-0000-0000-0000-000000000002',
    '550e8400-e29b-41d4-a716-446655440001', 'SICK',      10, 0),
   ('aa000001-0000-0000-0000-000000000003',
@@ -36,6 +36,6 @@ INSERT INTO leave_balances (id, employee_id, leave_type, allocated, used) VALUES
   ('aa000002-0000-0000-0000-000000000001',
    '550e8400-e29b-41d4-a716-446655440002', 'CASUAL',    12, 0),
   ('aa000002-0000-0000-0000-000000000002',
-   '550e8400-e29b-41d4-a716-446655440002', 'SICK',      10, 2),
+   '550e8400-e29b-41d4-a716-446655440002', 'SICK',      10, 0),
   ('aa000002-0000-0000-0000-000000000003',
-   '550e8400-e29b-41d4-a716-446655440002', 'PRIVILEGE', 15, 5);
+   '550e8400-e29b-41d4-a716-446655440002', 'PRIVILEGE', 15, 0);

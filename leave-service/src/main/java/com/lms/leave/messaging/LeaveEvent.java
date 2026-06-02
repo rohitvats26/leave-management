@@ -11,9 +11,16 @@ import java.util.UUID;
 @AllArgsConstructor
 public class LeaveEvent {
     private String eventType;
-    private UUID leaveRequestId, employeeId, managerId;
-    private String leaveType, status, reason, rejectionReason, comments;
-    private LocalDate startDate, endDate;
+    private UUID leaveRequestId;
+    private UUID employeeId;
+    private UUID managerId;
+    private String leaveType;
+    private String status;
+    private String reason;
+    private String rejectionReason;
+    private String comments;
+    private LocalDate startDate;
+    private LocalDate endDate;
     private int numberOfDays;
     private LocalDateTime timestamp;
 }

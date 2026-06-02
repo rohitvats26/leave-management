@@ -1,5 +1,7 @@
 package com.lms.notification.messaging;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.lms.notification.config.KafkaConfig;
 import com.lms.notification.dto.LeaveEvent;
 import com.lms.notification.entity.NotificationLog;
@@ -22,19 +24,13 @@ public class NotificationConsumer {
 
     private final NotificationRepository repo;
 
-    @KafkaListener(
-            topics = KafkaConfig.TOPIC_LEAVE_APPLIED,
-            groupId = KafkaConfig.GROUP_ID,
+    @KafkaListener(topics = KafkaConfig.TOPIC_LEAVE_APPLIED, groupId = KafkaConfig.GROUP_ID,
             containerFactory = "kafkaListenerContainerFactory"
     )
-    public void onLeaveApplied(
-            @Payload LeaveEvent event,
-            @Header(KafkaHeaders.RECEIVED_PARTITION) int partition,
-            @Header(KafkaHeaders.OFFSET) long offset,
-            Acknowledgment ack) {
+    public void onLeaveApplied(@Payload LeaveEvent event, @Header(KafkaHeaders.RECEIVED_PARTITION) int partition,
+                               @Header(KafkaHeaders.OFFSET) long offset, Acknowledgment ack) {
         try {
-            log.info("[KAFKA] Consumed LeaveApplied | partition={} offset={} leaveId={}",
-                    partition, offset, event.getLeaveRequestId());
+            prettyKafkaEventLog("LeaveApplied", event, partition, offset);
 
             // Notify employee
             save(event, event.getEmployeeId(), "EMPLOYEE",
@@ -54,9 +50,7 @@ public class NotificationConsumer {
         }
     }
 
-    @KafkaListener(
-            topics = KafkaConfig.TOPIC_LEAVE_APPROVED,
-            groupId = KafkaConfig.GROUP_ID,
+    @KafkaListener(topics = KafkaConfig.TOPIC_LEAVE_APPROVED, groupId = KafkaConfig.GROUP_ID,
             containerFactory = "kafkaListenerContainerFactory"
     )
     public void onLeaveApproved(
@@ -65,8 +59,7 @@ public class NotificationConsumer {
             @Header(KafkaHeaders.OFFSET) long offset,
             Acknowledgment ack) {
         try {
-            log.info("[KAFKA] Consumed LeaveApproved | partition={} offset={} leaveId={}",
-                    partition, offset, event.getLeaveRequestId());
+            prettyKafkaEventLog("LeaveApproved", event, partition, offset);
 
             save(event, event.getEmployeeId(), "EMPLOYEE",
                     String.format("✅ Your %s leave from %s to %s has been APPROVED.%s",
@@ -90,8 +83,7 @@ public class NotificationConsumer {
             @Header(KafkaHeaders.OFFSET) long offset,
             Acknowledgment ack) {
         try {
-            log.info("[KAFKA] Consumed LeaveRejected | partition={} offset={} leaveId={}",
-                    partition, offset, event.getLeaveRequestId());
+            prettyKafkaEventLog("LeaveRejected", event, partition, offset);
 
             save(event, event.getEmployeeId(), "EMPLOYEE",
                     String.format("❌ Your %s leave from %s to %s was REJECTED. Reason: %s",
@@ -113,6 +105,48 @@ public class NotificationConsumer {
                 .leaveRequestId(event.getLeaveRequestId())
                 .build();
         repo.save(log_entry);
-        log.info("[NOTIFICATION] To={} ({}): {}", recipientId, type, message);
+        prettyNotificationLog(log_entry);
+    }
+
+    private void prettyKafkaEventLog(String eventName, LeaveEvent event, int partition, long offset) {
+        if (event == null) return;
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode json = mapper.createObjectNode();
+        json.put("eventType", eventName);
+        json.put("partition", partition);
+        json.put("offset", offset);
+        json.put("leaveRequestId", safe(event.getLeaveRequestId()));
+        json.put("employeeId", safe(event.getEmployeeId()));
+        json.put("managerId", safe(event.getManagerId()));
+        json.put("leaveType", safe(event.getLeaveType()));
+        json.put("startDate", safe(event.getStartDate()));
+        json.put("endDate", safe(event.getEndDate()));
+        json.put("numberOfDays", safe(event.getNumberOfDays()));
+        json.put("comments", safe(event.getComments()));
+        json.put("rejectionReason", safe(event.getRejectionReason()));
+        try {
+            log.info("KAFKA EVENT ==> {}", json);
+        } catch (Exception e) {
+            log.error("Failed to serialize Kafka event to JSON", e);
+        }
+    }
+
+    private void prettyNotificationLog(NotificationLog notificationLog) {
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode json = mapper.createObjectNode();
+        json.put("eventType", safe(notificationLog.getEventType()));
+        json.put("recipientId", safe(notificationLog.getRecipientId()));
+        json.put("recipientType", safe(notificationLog.getRecipientType()));
+        json.put("leaveId", safe(notificationLog.getLeaveRequestId()));
+        json.put("message", safe(notificationLog.getMessage()));
+        try {
+            log.info("NOTIFICATION LOG ==> {}", mapper.writeValueAsString(json));
+        } catch (Exception e) {
+            log.error("Failed to serialize Kafka event to JSON", e);
+        }
+    }
+
+    private String safe(Object value) {
+        return value == null ? "N/A" : value.toString();
     }
 }

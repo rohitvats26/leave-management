@@ -13,13 +13,13 @@ import java.util.concurrent.CompletableFuture;
 @RequiredArgsConstructor
 public class LeaveEventPublisher {
 
-    private final KafkaTemplate<String, LeaveEvent> kafkaTemplate;
+    private final KafkaTemplate<Object, Object> kafkaTemplate;
 
     public void publish(String topic, LeaveEvent event) {
         // Use leaveRequestId as partition key so same request always hits same partition
         String key = event.getLeaveRequestId().toString();
 
-        CompletableFuture<SendResult<String, LeaveEvent>> future =
+        CompletableFuture<SendResult<Object, Object>> future =
                 kafkaTemplate.send(topic, key, event);
 
         future.whenComplete((result, ex) -> {

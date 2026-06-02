@@ -21,7 +21,7 @@ public class GatewayConfig {
 
             // Employee
             .route("employee-service", r -> r
-                .path("/employees/**", "/managers/**")
+                .path("/employees/**", "/manager/**")
                 .filters(f -> f.filter(jwtAuthFilter.apply(cfg)))
                 .uri("lb://employee-service"))
 

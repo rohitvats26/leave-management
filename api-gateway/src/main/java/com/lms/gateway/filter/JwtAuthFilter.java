@@ -33,6 +33,7 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
     }
 
     @Override
+    @NonNull
     public GatewayFilter apply(@NonNull Config config) {
         return (exchange, chain) -> {
             String path = exchange.getRequest().getPath().toString();

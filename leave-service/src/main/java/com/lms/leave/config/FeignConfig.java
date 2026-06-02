@@ -20,7 +20,8 @@ public class FeignConfig {
                 return;
             }
             HttpServletRequest request = attributes.getRequest();
-            Collections.list(request.getHeaderNames())
+            Collections.list(request.getHeaderNames()).stream()
+                    .filter(headerName -> !"content-length".equalsIgnoreCase(headerName))
                     .forEach(headerName -> requestTemplate.header(headerName, request.getHeader(headerName)));
         };
     }
