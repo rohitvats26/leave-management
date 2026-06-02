@@ -38,7 +38,7 @@ public class EmployeeClientService {
             employeeClient.checkBalance(employeeId, leaveType, days);
 
         if (response.getStatusCode().is5xxServerError()) {
-            throw new ServiceUnavailableException("Employee service returned 5xx");
+            throw new ServiceUnavailableException("Unable to verify leave balance because employee service is unavailable.");
         }
         return Boolean.TRUE.equals(response.getBody().get("sufficient"));
     }
@@ -59,7 +59,7 @@ public class EmployeeClientService {
         req.setDays(days);
         ResponseEntity<Void> response = employeeClient.deductBalance(employeeId, req);
         if (response.getStatusCode().is5xxServerError()) {
-            throw new ServiceUnavailableException("Employee service returned 5xx on deduct");
+            throw new ServiceUnavailableException("Unable to update leave balance because employee service is unavailable.");
         }
     }
 

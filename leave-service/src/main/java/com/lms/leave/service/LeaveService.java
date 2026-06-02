@@ -30,21 +30,21 @@ public class LeaveService {
         UUID empId = UUID.fromString(employeeId);
 
         if (req.getEndDate().isBefore(req.getStartDate()))
-            throw new ValidationException("End date must be >= start date");
+            throw new ValidationException("End date must be the same as or after start date.");
 
         long days = ChronoUnit.DAYS.between(req.getStartDate(), req.getEndDate()) + 1;
         if (days != req.getNumberOfDays())
-            throw new ValidationException("numberOfDays mismatch: expected " + days);
+            throw new ValidationException("numberOfDays does not match selected date range. Expected: " + days + ".");
 
         if (!leaveRepo.findOverlapping(empId, req.getStartDate(), req.getEndDate()).isEmpty())
-            throw new OverlapException("leave request already exists for the given date range");
+            throw new OverlapException("A leave request already exists for the selected date range.");
 
         // Circuit-breaker wrapped balance check
         boolean sufficient = employeeClientService.checkBalance(
                 empId, req.getLeaveType().toUpperCase(), req.getNumberOfDays());
         if (!sufficient)
             throw new InsufficientBalanceException(
-                    "Insufficient " + req.getLeaveType() + " balance for " + req.getNumberOfDays() + " days");
+                    "Insufficient " + req.getLeaveType() + " leave balance for " + req.getNumberOfDays() + " day(s).");
 
         LeaveRequest leave = LeaveRequest.builder()
                 .employeeId(empId).managerId(req.getManagerId())
@@ -78,9 +78,9 @@ public class LeaveService {
     public LeaveRequestResponse cancel(UUID leaveId, String employeeId) {
         LeaveRequest leave = findById(leaveId);
         if (!leave.getEmployeeId().toString().equals(employeeId))
-            throw new ForbiddenException("You can only cancel your own leave requests");
+            throw new ForbiddenException("You can only cancel leave requests submitted by your own account.");
         if (!"PENDING".equals(leave.getStatus()))
-            throw new ValidationException("Only PENDING leaves can be cancelled");
+            throw new ValidationException("Only leave requests in PENDING status can be cancelled.");
         leave.setStatus("CANCELLED");
         log.info("[LEAVE] Cancelled leaveId={}", leaveId);
         return toResponse(leaveRepo.save(leave));
@@ -90,9 +90,9 @@ public class LeaveService {
     public LeaveRequestResponse approve(UUID leaveId, String managerId, ApproveRejectRequest req) {
         LeaveRequest leave = findById(leaveId);
         if (!leave.getManagerId().toString().equals(managerId))
-            throw new ForbiddenException("You can only approve requests assigned to you");
+            throw new ForbiddenException("You can only approve leave requests assigned to you.");
         if (!"PENDING".equals(leave.getStatus()))
-            throw new ValidationException("Only PENDING leaves can be approved");
+            throw new ValidationException("Only leave requests in PENDING status can be approved.");
 
         // Circuit-breaker wrapped deduction
         employeeClientService.deductBalance(
@@ -111,11 +111,11 @@ public class LeaveService {
     public LeaveRequestResponse reject(UUID leaveId, String managerId, ApproveRejectRequest req) {
         LeaveRequest leave = findById(leaveId);
         if (!leave.getManagerId().toString().equals(managerId))
-            throw new ForbiddenException("You can only reject requests assigned to you");
+            throw new ForbiddenException("You can only reject leave requests assigned to you.");
         if (!"PENDING".equals(leave.getStatus()))
-            throw new ValidationException("Only PENDING leaves can be rejected");
+            throw new ValidationException("Only leave requests in PENDING status can be rejected.");
         if (req == null || req.getRejectionReason() == null || req.getRejectionReason().isBlank())
-            throw new ValidationException("Rejection reason is required");
+            throw new ValidationException("A rejection reason is required when rejecting a leave request.");
 
         leave.setStatus("REJECTED");
         leave.setRejectionReason(req.getRejectionReason());
@@ -128,7 +128,7 @@ public class LeaveService {
 
     private LeaveRequest findById(UUID id) {
         return leaveRepo.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Leave request not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Leave request was not found for id: " + id));
     }
 
     private LeaveRequestResponse toResponse(LeaveRequest l) {

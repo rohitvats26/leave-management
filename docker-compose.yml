@@ -1,5 +1,3 @@
-version: '3.8'
-
 # ════════════════════════════════════════════════════════════════════
 #  Leave Management System — docker-compose
 #  Spring Boot 4 | Kafka | Resilience4j | ELK Stack

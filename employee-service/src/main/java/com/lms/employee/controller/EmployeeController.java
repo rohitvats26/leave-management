@@ -1,6 +1,7 @@
 package com.lms.employee.controller;
 
 import com.lms.employee.dto.*;
+import com.lms.employee.exception.ForbiddenException;
 import com.lms.employee.service.EmployeeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -14,12 +15,17 @@ import java.util.*;
 @RequiredArgsConstructor
 public class EmployeeController {
 
+    private static final String MANAGER_ACCESS_REQUIRED = "Access denied. This operation requires role ROLE_MANAGER.";
+    private static final String EMPLOYEE_ACCESS_REQUIRED = "Access denied. ROLE_EMPLOYEE can only access their own employee record and balance.";
+
     private final EmployeeService employeeService;
 
     @PostMapping
     public ResponseEntity<EmployeeResponse> create(@Valid @RequestBody CreateEmployeeRequest req,
                                                    @RequestHeader("X-User-Role") String role) {
-        if (!"ROLE_MANAGER".equals(role)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        if (!"ROLE_MANAGER".equals(role)) {
+            throw new ForbiddenException(MANAGER_ACCESS_REQUIRED);
+        }
         return ResponseEntity.status(HttpStatus.CREATED).body(employeeService.createEmployee(req));
     }
 
@@ -27,8 +33,9 @@ public class EmployeeController {
     public ResponseEntity<EmployeeResponse> getEmployee(@PathVariable UUID id,
                                                         @RequestHeader("X-User-Id") String userId,
                                                         @RequestHeader("X-User-Role") String role) {
-        if ("ROLE_EMPLOYEE".equals(role) && !userId.equals(id.toString()))
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        if ("ROLE_EMPLOYEE".equals(role) && !userId.equals(id.toString())) {
+            throw new ForbiddenException(EMPLOYEE_ACCESS_REQUIRED);
+        }
         return ResponseEntity.ok(employeeService.getEmployee(id));
     }
 
@@ -36,8 +43,9 @@ public class EmployeeController {
     public ResponseEntity<Map<String, Object>> getBalance(@PathVariable UUID id,
                                                           @RequestHeader("X-User-Id") String userId,
                                                           @RequestHeader("X-User-Role") String role) {
-        if ("ROLE_EMPLOYEE".equals(role) && !userId.equals(id.toString()))
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        if ("ROLE_EMPLOYEE".equals(role) && !userId.equals(id.toString())) {
+            throw new ForbiddenException(EMPLOYEE_ACCESS_REQUIRED);
+        }
         List<LeaveBalanceDto> balances = employeeService.getBalance(id);
         Map<String, Object> resp = new LinkedHashMap<>();
         resp.put("employeeId", id);
@@ -47,22 +55,34 @@ public class EmployeeController {
 
     @PutMapping("/{id}/balance/deduct")
     public ResponseEntity<Void> deductBalance(@PathVariable UUID id,
-                                              @RequestBody DeductBalanceRequest req) {
+                                              @Valid @RequestBody DeductBalanceRequest req) {
         employeeService.deductBalance(id, req.getLeaveType(), req.getDays());
-        return ResponseEntity.ok().build();
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/manager/{managerId}")
     public ResponseEntity<List<EmployeeResponse>> getTeam(@PathVariable UUID managerId,
                                                           @RequestHeader("X-User-Role") String role) {
-        if (!"ROLE_MANAGER".equals(role)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        if (!"ROLE_MANAGER".equals(role)) {
+            throw new ForbiddenException(MANAGER_ACCESS_REQUIRED);
+        }
         return ResponseEntity.ok(employeeService.getTeam(managerId));
     }
 
     @GetMapping("/{id}/balance/check")
     public ResponseEntity<Map<String, Object>> checkBalance(@PathVariable UUID id,
                                                             @RequestParam String leaveType, @RequestParam int days) {
+        validateLeaveBalanceCheckRequest(leaveType, days);
         boolean ok = employeeService.hasEnoughBalance(id, leaveType, days);
         return ResponseEntity.ok(Map.of("sufficient", ok));
+    }
+
+    private void validateLeaveBalanceCheckRequest(String leaveType, int days) {
+        if (leaveType == null || leaveType.isBlank()) {
+            throw new IllegalArgumentException("leaveType is required");
+        }
+        if (days <= 0) {
+            throw new IllegalArgumentException("days must be greater than 0");
+        }
     }
 }

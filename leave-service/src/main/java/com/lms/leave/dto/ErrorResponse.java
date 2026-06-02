@@ -1,6 +1,7 @@
-package com.lms.auth.dto;
+package com.lms.leave.dto;
 
-import lombok.*;
+import lombok.Builder;
+import lombok.Data;
 
 import java.time.LocalDateTime;
 
@@ -15,3 +16,4 @@ public class ErrorResponse {
     private String path;
     private String traceId;
 }
+

@@ -1,57 +1,82 @@
 package com.lms.leave.exception;
 
+import com.lms.leave.dto.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.Optional;
+import java.util.UUID;
 
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<Map<String, Object>> notFound(ResourceNotFoundException ex, HttpServletRequest req) {
-        return resp(404, "Not Found", ex.getMessage(), req);
+    public ResponseEntity<ErrorResponse> notFound(ResourceNotFoundException ex, HttpServletRequest req) {
+        return resp(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", ex.getMessage(), req);
     }
 
     @ExceptionHandler({ValidationException.class, InsufficientBalanceException.class})
-    public ResponseEntity<Map<String, Object>> badReq(RuntimeException ex, HttpServletRequest req) {
-        return resp(400, "Bad Request", ex.getMessage(), req);
+    public ResponseEntity<ErrorResponse> badReq(RuntimeException ex, HttpServletRequest req) {
+        return resp(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", ex.getMessage(), req);
     }
 
     @ExceptionHandler(OverlapException.class)
-    public ResponseEntity<Map<String, Object>> conflict(OverlapException ex, HttpServletRequest req) {
-        return resp(409, "Conflict", ex.getMessage(), req);
+    public ResponseEntity<ErrorResponse> conflict(OverlapException ex, HttpServletRequest req) {
+        return resp(HttpStatus.CONFLICT, "LEAVE_OVERLAP", ex.getMessage(), req);
     }
 
     @ExceptionHandler(ForbiddenException.class)
-    public ResponseEntity<Map<String, Object>> forbidden(ForbiddenException ex, HttpServletRequest req) {
-        return resp(403, "Forbidden", ex.getMessage(), req);
+    public ResponseEntity<ErrorResponse> forbidden(ForbiddenException ex, HttpServletRequest req) {
+        return resp(HttpStatus.FORBIDDEN, "ACCESS_DENIED", ex.getMessage(), req);
     }
 
     @ExceptionHandler(ServiceUnavailableException.class)
-    public ResponseEntity<Map<String, Object>> svcUnavail(ServiceUnavailableException ex, HttpServletRequest req) {
-        return resp(503, "Service Unavailable", ex.getMessage(), req);
+    public ResponseEntity<ErrorResponse> svcUnavail(ServiceUnavailableException ex, HttpServletRequest req) {
+        return resp(HttpStatus.SERVICE_UNAVAILABLE, "DEPENDENCY_UNAVAILABLE", ex.getMessage(), req);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Map<String, Object>> validation(MethodArgumentNotValidException ex, HttpServletRequest req) {
+    public ResponseEntity<ErrorResponse> validation(MethodArgumentNotValidException ex, HttpServletRequest req) {
         String msg = ex.getBindingResult().getFieldErrors().stream().findFirst()
                 .map(e -> e.getField() + ": " + e.getDefaultMessage()).orElse("Validation error");
-        return resp(400, "Bad Request", msg, req);
+        return resp(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", msg, req);
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, Object>> all(Exception ex, HttpServletRequest req) {
+    public ResponseEntity<ErrorResponse> all(Exception ex, HttpServletRequest req) {
         log.error("Error: {}", ex.getMessage(), ex);
-        return resp(500, "Internal Server Error", ex.getMessage(), req);
+        return resp(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "An unexpected error occurred", req);
     }
 
-    private ResponseEntity<Map<String, Object>> resp(int s, String e, String m, HttpServletRequest req) {
-        return ResponseEntity.status(s).body(Map.of("timestamp", LocalDateTime.now(), "status", s, "error", e, "message", m, "path", req.getRequestURI()));
+    private ResponseEntity<ErrorResponse> resp(HttpStatus status, String code, String message, HttpServletRequest req) {
+        ErrorResponse body = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(status.value())
+                .error(status.getReasonPhrase())
+                .code(code)
+                .message(message)
+                .path(resolvePath(req))
+                .traceId(resolveTraceId(req))
+                .build();
+        return ResponseEntity.status(status).body(body);
+    }
+
+    private String resolveTraceId(HttpServletRequest req) {
+        if (req == null) {
+            return UUID.randomUUID().toString();
+        }
+        return Optional.ofNullable(req.getHeader("X-Trace-Id"))
+                .filter(value -> !value.isBlank())
+                .orElseGet(() -> UUID.randomUUID().toString());
+    }
+
+    private String resolvePath(HttpServletRequest req) {
+        return req != null ? req.getRequestURI() : "N/A";
     }
 }

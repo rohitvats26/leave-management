@@ -1,11 +1,13 @@
 package com.lms.leave.controller;
 
 import com.lms.leave.dto.*;
+import com.lms.leave.exception.ForbiddenException;
 import com.lms.leave.service.LeaveService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
-import org.springframework.http.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -14,23 +16,29 @@ import java.util.UUID;
 @RequestMapping("/leaves")
 @RequiredArgsConstructor
 public class LeaveController {
+    private static final String MANAGER_ACCESS_REQUIRED = "Access denied. This operation requires role ROLE_MANAGER.";
+    private static final String EMPLOYEE_ACCESS_REQUIRED = "Access denied. This operation requires role ROLE_EMPLOYEE.";
+
     private final LeaveService leaveService;
 
-    @PostMapping("/apply")
+    @PostMapping({"", "/apply"})
     public ResponseEntity<LeaveRequestResponse> apply(
             @Valid @RequestBody ApplyLeaveRequest req,
             @RequestHeader("X-User-Id") String userId,
             @RequestHeader("X-User-Role") String role) {
-        if (!"ROLE_EMPLOYEE".equals(role)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        if (!"ROLE_EMPLOYEE".equals(role)) {
+            throw new ForbiddenException(EMPLOYEE_ACCESS_REQUIRED);
+        }
         return ResponseEntity.status(HttpStatus.CREATED).body(leaveService.applyLeave(userId, req));
     }
 
-    @GetMapping("/my")
+    @GetMapping({"/me", "/my"})
     public ResponseEntity<Page<LeaveRequestResponse>> myLeaves(
             @RequestHeader("X-User-Id") String userId,
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
+        validatePageRequest(page, size);
         return ResponseEntity.ok(leaveService.getMyLeaves(userId, status, PageRequest.of(page, size, Sort.by("appliedAt").descending())));
     }
 
@@ -40,31 +48,47 @@ public class LeaveController {
         return ResponseEntity.ok(leaveService.cancel(id, userId));
     }
 
-    @GetMapping("/team/{managerId}")
+    @GetMapping({"/team/{managerId}", "/manager/{managerId}"})
     public ResponseEntity<Page<LeaveRequestResponse>> teamLeaves(@PathVariable UUID managerId,
                                                                  @RequestHeader("X-User-Role") String role,
                                                                  @RequestParam(required = false) String status,
                                                                  @RequestParam(defaultValue = "0") int page,
                                                                  @RequestParam(defaultValue = "10") int size) {
-        if (!"ROLE_MANAGER".equals(role)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        if (!"ROLE_MANAGER".equals(role)) {
+            throw new ForbiddenException(MANAGER_ACCESS_REQUIRED);
+        }
+        validatePageRequest(page, size);
         return ResponseEntity.ok(leaveService.getTeamLeaves(managerId, status, PageRequest.of(page, size)));
     }
 
     @PutMapping("/{id}/approve")
     public ResponseEntity<LeaveRequestResponse> approve(@PathVariable UUID id,
-                                                        @RequestBody(required = false) ApproveRejectRequest req,
+                                                        @Valid @RequestBody(required = false) ApproveRejectRequest req,
                                                         @RequestHeader("X-User-Id") String managerId,
                                                         @RequestHeader("X-User-Role") String role) {
-        if (!"ROLE_MANAGER".equals(role)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        if (!"ROLE_MANAGER".equals(role)) {
+            throw new ForbiddenException(MANAGER_ACCESS_REQUIRED);
+        }
         return ResponseEntity.ok(leaveService.approve(id, managerId, req));
     }
 
     @PutMapping("/{id}/reject")
     public ResponseEntity<LeaveRequestResponse> reject(@PathVariable UUID id,
-                                                       @RequestBody ApproveRejectRequest req,
+                                                       @Valid @RequestBody ApproveRejectRequest req,
                                                        @RequestHeader("X-User-Id") String managerId,
                                                        @RequestHeader("X-User-Role") String role) {
-        if (!"ROLE_MANAGER".equals(role)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        if (!"ROLE_MANAGER".equals(role)) {
+            throw new ForbiddenException(MANAGER_ACCESS_REQUIRED);
+        }
         return ResponseEntity.ok(leaveService.reject(id, managerId, req));
+    }
+
+    private void validatePageRequest(int page, int size) {
+        if (page < 0) {
+            throw new IllegalArgumentException("page must be greater than or equal to 0");
+        }
+        if (size <= 0) {
+            throw new IllegalArgumentException("size must be greater than 0");
+        }
     }
 }

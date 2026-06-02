@@ -1,5 +1,6 @@
 package com.lms.employee.client;
 
+import com.lms.employee.config.FeignConfig;
 import com.lms.employee.dto.ApproveRejectRequest;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.ResponseEntity;
@@ -8,7 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 import java.util.UUID;
 
-@FeignClient(name = "leave-service")
+@FeignClient(name = "leave-service", configuration = FeignConfig.class)
 public interface LeaveClient {
     @GetMapping("/leaves/team/{managerId}")
     ResponseEntity<Map<String, Object>> getTeamLeaves(@PathVariable UUID managerId,

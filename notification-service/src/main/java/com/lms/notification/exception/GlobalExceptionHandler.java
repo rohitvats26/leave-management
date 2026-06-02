@@ -1,12 +1,12 @@
-package com.lms.auth.exception;
+package com.lms.notification.exception;
 
-import com.lms.auth.dto.ErrorResponse;
+import com.lms.notification.dto.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.*;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -16,25 +16,18 @@ import java.util.UUID;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<ErrorResponse> handleBadCreds(BadCredentialsException ex, HttpServletRequest req) {
-        return build(HttpStatus.UNAUTHORIZED, "AUTH_INVALID_CREDENTIALS", ex.getMessage(), req);
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> notFound(ResourceNotFoundException ex, HttpServletRequest req) {
+        return build(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", ex.getMessage(), req);
     }
 
-    @ExceptionHandler(ConflictException.class)
-    public ResponseEntity<ErrorResponse> handleConflict(ConflictException ex, HttpServletRequest req) {
-        return build(HttpStatus.CONFLICT, "RESOURCE_CONFLICT", ex.getMessage(), req);
-    }
-
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex, HttpServletRequest req) {
-        String msg = ex.getBindingResult().getFieldErrors().stream().findFirst()
-                .map(e -> e.getField() + ": " + e.getDefaultMessage()).orElse("Validation error");
-        return build(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", msg, req);
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> badRequest(IllegalArgumentException ex, HttpServletRequest req) {
+        return build(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", ex.getMessage(), req);
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleAll(Exception ex, HttpServletRequest req) {
+    public ResponseEntity<ErrorResponse> all(Exception ex, HttpServletRequest req) {
         log.error("Unhandled exception: {}", ex.getMessage(), ex);
         return build(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "An unexpected error occurred", req);
     }
@@ -65,3 +58,4 @@ public class GlobalExceptionHandler {
         return req != null ? req.getRequestURI() : "N/A";
     }
 }
+

@@ -8,6 +8,8 @@ import com.lms.notification.entity.NotificationLog;
 import com.lms.notification.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.kafka.support.KafkaHeaders;
@@ -23,6 +25,7 @@ import java.util.UUID;
 public class NotificationConsumer {
 
     private final NotificationRepository repo;
+    private static final Logger CONSOLE_ONLY_LOG = LoggerFactory.getLogger("CONSOLE_ONLY");
 
     @KafkaListener(topics = KafkaConfig.TOPIC_LEAVE_APPLIED, groupId = KafkaConfig.GROUP_ID,
             containerFactory = "kafkaListenerContainerFactory"
@@ -30,7 +33,7 @@ public class NotificationConsumer {
     public void onLeaveApplied(@Payload LeaveEvent event, @Header(KafkaHeaders.RECEIVED_PARTITION) int partition,
                                @Header(KafkaHeaders.OFFSET) long offset, Acknowledgment ack) {
         try {
-            prettyKafkaEventLog("LeaveApplied", event, partition, offset);
+            log.info("{}", kafkaEventLog("LeaveApplied", event, partition, offset));
 
             // Notify employee
             save(event, event.getEmployeeId(), "EMPLOYEE",
@@ -59,7 +62,7 @@ public class NotificationConsumer {
             @Header(KafkaHeaders.OFFSET) long offset,
             Acknowledgment ack) {
         try {
-            prettyKafkaEventLog("LeaveApproved", event, partition, offset);
+            log.info("{}", kafkaEventLog("LeaveApproved", event, partition, offset));
 
             save(event, event.getEmployeeId(), "EMPLOYEE",
                     String.format("✅ Your %s leave from %s to %s has been APPROVED.%s",
@@ -83,7 +86,7 @@ public class NotificationConsumer {
             @Header(KafkaHeaders.OFFSET) long offset,
             Acknowledgment ack) {
         try {
-            prettyKafkaEventLog("LeaveRejected", event, partition, offset);
+            log.info("{}", kafkaEventLog("LeaveRejected", event, partition, offset));
 
             save(event, event.getEmployeeId(), "EMPLOYEE",
                     String.format("❌ Your %s leave from %s to %s was REJECTED. Reason: %s",
@@ -105,44 +108,61 @@ public class NotificationConsumer {
                 .leaveRequestId(event.getLeaveRequestId())
                 .build();
         repo.save(log_entry);
-        prettyNotificationLog(log_entry);
+        log.info("{}", notificationLog(log_entry));
     }
 
-    private void prettyKafkaEventLog(String eventName, LeaveEvent event, int partition, long offset) {
-        if (event == null) return;
+    private ObjectNode kafkaEventLog(String eventName, LeaveEvent event, int partition, long offset) {
+        if (event == null) {
+            return null;
+        }
+
         ObjectMapper mapper = new ObjectMapper();
-        ObjectNode json = mapper.createObjectNode();
-        json.put("eventType", eventName);
-        json.put("partition", partition);
-        json.put("offset", offset);
-        json.put("leaveRequestId", safe(event.getLeaveRequestId()));
-        json.put("employeeId", safe(event.getEmployeeId()));
-        json.put("managerId", safe(event.getManagerId()));
-        json.put("leaveType", safe(event.getLeaveType()));
-        json.put("startDate", safe(event.getStartDate()));
-        json.put("endDate", safe(event.getEndDate()));
-        json.put("numberOfDays", safe(event.getNumberOfDays()));
-        json.put("comments", safe(event.getComments()));
-        json.put("rejectionReason", safe(event.getRejectionReason()));
+        ObjectNode kafkaEvent = mapper.createObjectNode();
+        kafkaEvent.put("eventType", eventName);
+        kafkaEvent.put("partition", partition);
+        kafkaEvent.put("offset", offset);
+        kafkaEvent.put("leaveRequestId", safe(event.getLeaveRequestId()));
+        kafkaEvent.put("employeeId", safe(event.getEmployeeId()));
+        kafkaEvent.put("managerId", safe(event.getManagerId()));
+        kafkaEvent.put("leaveType", safe(event.getLeaveType()));
+        kafkaEvent.put("startDate", safe(event.getStartDate()));
+        kafkaEvent.put("endDate", safe(event.getEndDate()));
+        kafkaEvent.put("numberOfDays", safe(event.getNumberOfDays()));
+        kafkaEvent.put("comments", safe(event.getComments()));
+        kafkaEvent.put("rejectionReason", safe(event.getRejectionReason()));
+        ObjectNode wrapper = mapper.createObjectNode();
+        wrapper.set("kafkaEvent", kafkaEvent);
+        printPrettyKafkaEventLog(wrapper);
+        return wrapper;
+    }
+
+    private void printPrettyKafkaEventLog(ObjectNode kafkaEvent) {
         try {
-            log.info("KAFKA EVENT ==> {}", json);
+            CONSOLE_ONLY_LOG.info("KAFKA EVENT ==> {}", new ObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(kafkaEvent));
         } catch (Exception e) {
             log.error("Failed to serialize Kafka event to JSON", e);
         }
     }
 
-    private void prettyNotificationLog(NotificationLog notificationLog) {
+    private ObjectNode notificationLog(NotificationLog notificationLog) {
         ObjectMapper mapper = new ObjectMapper();
-        ObjectNode json = mapper.createObjectNode();
-        json.put("eventType", safe(notificationLog.getEventType()));
-        json.put("recipientId", safe(notificationLog.getRecipientId()));
-        json.put("recipientType", safe(notificationLog.getRecipientType()));
-        json.put("leaveId", safe(notificationLog.getLeaveRequestId()));
-        json.put("message", safe(notificationLog.getMessage()));
+        ObjectNode notification = mapper.createObjectNode();
+        notification.put("eventType", safe(notificationLog.getEventType()));
+        notification.put("recipientId", safe(notificationLog.getRecipientId()));
+        notification.put("recipientType", safe(notificationLog.getRecipientType()));
+        notification.put("leaveId", safe(notificationLog.getLeaveRequestId()));
+        notification.put("message", safe(notificationLog.getMessage()));
+        ObjectNode wrapper = mapper.createObjectNode();
+        wrapper.set("notification", notification);
+        printPrettyNotificationLog(wrapper);
+        return wrapper;
+    }
+
+    private void printPrettyNotificationLog(ObjectNode notification) {
         try {
-            log.info("NOTIFICATION LOG ==> {}", mapper.writeValueAsString(json));
+            CONSOLE_ONLY_LOG.info("NOTIFICATION LOG ==> {}", new ObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(notification));
         } catch (Exception e) {
-            log.error("Failed to serialize Kafka event to JSON", e);
+            log.error("Failed to serialize notification log to JSON", e);
         }
     }
 
