@@ -14,19 +14,19 @@ spring:
       ddl-auto: create-drop
     show-sql: false
     open-in-view: false
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+      settings:
+        web-allow-others: true
   kafka:
-    bootstrap-servers: kafka:9092
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-      acks: all
-      retries: 3
-      properties:
-        enable.idempotence: true
+    bootstrap-servers: localhost:9092
+
 eureka:
   client:
     service-url:
-      defaultZone: http://eureka-server:8761/eureka/
+      defaultZone: http://localhost:8761/eureka/
   instance:
     prefer-ip-address: false
     instance-id: ${spring.application.name}:${server.port}
@@ -71,10 +71,12 @@ management:
       enabled: true
 
 logging:
+  logstash:
+    host: logstash
+    port: 5044
   level:
     com.lms: INFO
     io.github.resilience4j: DEBUG
-
-logstash:
-  host: logstash
-  port: 5044
+    org.springframework.cloud.openfeign: DEBUG
+    com.netflix.discovery: DEBUG
+    org.springframework.cloud.loadbalancer: DEBUG

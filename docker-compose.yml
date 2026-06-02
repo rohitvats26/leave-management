@@ -135,7 +135,9 @@ services:
       - "8761:8761"
     environment:
       SPRING_APPLICATION_NAME: eureka-server
-      LOGSTASH_HOST: logstash
+      SPRING_PROFILES_ACTIVE: docker
+      LOGGING_LOGSTASH_HOST: logstash
+      LOGGING_LOGSTASH_PORT: "5044"
     depends_on:
       logstash:
         condition: service_healthy
@@ -157,11 +159,13 @@ services:
       - "8081:8081"
     environment:
       SPRING_APPLICATION_NAME: auth-service
+      SPRING_PROFILES_ACTIVE: docker
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       EUREKA_INSTANCE_HOSTNAME: auth-service
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "false"
       JWT_SECRET: lms-super-secret-key-must-be-at-least-256-bits-long-for-hs256
-      LOGSTASH_HOST: logstash
+      LOGGING_LOGSTASH_HOST: logstash
+      LOGGING_LOGSTASH_PORT: "5044"
     depends_on:
       eureka-server:
         condition: service_healthy
@@ -181,10 +185,12 @@ services:
       - "8082:8082"
     environment:
       SPRING_APPLICATION_NAME: employee-service
+      SPRING_PROFILES_ACTIVE: docker
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       EUREKA_INSTANCE_HOSTNAME: employee-service
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "false"
-      LOGSTASH_HOST: logstash
+      LOGGING_LOGSTASH_HOST: logstash
+      LOGGING_LOGSTASH_PORT: "5044"
     depends_on:
       eureka-server:
         condition: service_healthy
@@ -204,11 +210,13 @@ services:
       - "8083:8083"
     environment:
       SPRING_APPLICATION_NAME: leave-service
+      SPRING_PROFILES_ACTIVE: docker
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       EUREKA_INSTANCE_HOSTNAME: leave-service
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "false"
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      LOGSTASH_HOST: logstash
+      LOGGING_LOGSTASH_HOST: logstash
+      LOGGING_LOGSTASH_PORT: "5044"
     depends_on:
       eureka-server:
         condition: service_healthy
@@ -232,11 +240,13 @@ services:
       - "8085:8085"
     environment:
       SPRING_APPLICATION_NAME: notification-service
+      SPRING_PROFILES_ACTIVE: docker
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       EUREKA_INSTANCE_HOSTNAME: notification-service
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "false"
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      LOGSTASH_HOST: logstash
+      LOGGING_LOGSTASH_HOST: logstash
+      LOGGING_LOGSTASH_PORT: "5044"
     depends_on:
       kafka:
         condition: service_healthy
@@ -260,11 +270,13 @@ services:
       - "8080:8080"
     environment:
       SPRING_APPLICATION_NAME: api-gateway
+      SPRING_PROFILES_ACTIVE: docker
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       EUREKA_INSTANCE_HOSTNAME: api-gateway
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "false"
       JWT_SECRET: lms-super-secret-key-must-be-at-least-256-bits-long-for-hs256
-      LOGSTASH_HOST: logstash
+      LOGGING_LOGSTASH_HOST: logstash
+      LOGGING_LOGSTASH_PORT: "5044"
     depends_on:
       eureka-server:
         condition: service_healthy

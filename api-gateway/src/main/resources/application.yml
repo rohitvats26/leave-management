@@ -10,43 +10,7 @@ spring:
       discovery:
         locator:
           enabled: true
-          lower-case-service-id: true   # auth-service not AUTH-SERVICE
-      routes:
-        - id: auth-service
-          uri: lb://auth-service
-          predicates:
-            - Path=/auth/**
-
-        - id: employee-service
-          uri: lb://employee-service
-          predicates:
-            - Path=/employees/**
-          filters:
-            - JwtAuthFilter
-
-        - id: leave-service
-          uri: lb://leave-service
-          predicates:
-            - Path=/leaves/**
-          filters:
-            - JwtAuthFilter
-
-        - id: manager-service
-          uri: lb://manager-service
-          predicates:
-            - Path=/manager/**
-          filters:
-            - JwtAuthFilter
-
-        - id: notification-service
-          uri: lb://notification-service
-          predicates:
-            - Path=/notifications/**
-          filters:
-            - JwtAuthFilter
-
-      default-filters:
-        - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+          lower-case-service-id: true
 
       globalcors:
         cors-configurations:
@@ -62,7 +26,7 @@ spring:
 eureka:
   client:
     service-url:
-      defaultZone: http://eureka-server:8761/eureka/
+      defaultZone: http://localhost:8761/eureka/
     fetch-registry: true
     register-with-eureka: true
     registry-fetch-interval-seconds: 5
@@ -84,10 +48,9 @@ management:
 
 logging:
   level:
-    com.lms: DEBUG
+    com.lms: INFO
     org.springframework.cloud.gateway: DEBUG
     org.springframework.cloud.loadbalancer: DEBUG
-
-logstash:
-  host: logstash
-  port: 5044
+  logstash:
+    host: logstash
+    port: 5044

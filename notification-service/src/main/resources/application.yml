@@ -13,23 +13,20 @@ spring:
     hibernate:
       ddl-auto: create-drop
     show-sql: false
+    open-in-view: false
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+      settings:
+        web-allow-others: true
   kafka:
-    bootstrap-servers: kafka:9092
-    consumer:
-      group-id: notification-service-group
-      auto-offset-reset: earliest
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-      enable-auto-commit: false
-      properties:
-        spring.json.trusted.packages: "com.lms.leave.messaging,com.lms.notification.dto"
-        spring.json.use.type.headers: false
-        spring.json.value.default.type: com.lms.notification.dto.LeaveEvent
+    bootstrap-servers: localhost:9092
 
 eureka:
   client:
     service-url:
-      defaultZone: http://eureka-server:8761/eureka/
+      defaultZone: http://localhost:8761/eureka/
   instance:
     prefer-ip-address: false
     instance-id: ${spring.application.name}:${server.port}
@@ -40,9 +37,8 @@ management:
       exposure:
         include: health,info
 logging:
+  logstash:
+    host: logstash
+    port: 5044
   level:
     com.lms: INFO
-
-logstash:
-  host: logstash
-  port: 5044
