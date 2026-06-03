@@ -139,9 +139,7 @@ services:
   # ── SERVICE DISCOVERY ───────────────────────────────────────────────
 
   eureka-server:
-    build:
-      context: .
-      dockerfile: eureka-server/Dockerfile
+    build: ./eureka-server
     container_name: eureka-server
     hostname: eureka-server
     ports:
