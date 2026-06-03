@@ -2,20 +2,19 @@
 **Spring Boot 4.0.6 · Java 21 · Kafka · Resilience4j · ELK Stack · Docker**
 
 ## Architecture
-| Service            | Port  | Notes                                     |
-|--------------------|-------|-------------------------------------------|
-| Eureka Server      | 8761  | Service discovery                         |
-| API Gateway        | 8080  | JWT filter, routing, load balancer        |
-| Auth Service       | 8081  | Login, JWT generation                     |
-| Employee Service   | 8082  | Profiles, leave balances                  |
-| Leave Service      | 8083  | Apply/approve/reject, Kafka producer, CB  |
-| Manager Service    | 8084  | Team view, delegates to Leave Service     |
-| Notification Svc   | 8085  | Kafka consumer, notification logs         |
-| Kafka (KRaft)      | 9092  | Zookeeper-free message broker             |
-| Kafka UI           | 8090  | Topic/message browser                     |
-| Elasticsearch      | 9200  | Log index store                           |
-| Logstash           | 5044  | Log ingestion pipeline (TCP JSON)         |
-| Kibana             | 5601  | Log dashboards                            |
+| Service          | Port | Notes                                                                |
+|------------------|------|----------------------------------------------------------------------|
+| Eureka Server    | 8761 | Service discovery                                                    |
+| API Gateway      | 8080 | JWT filter, routing, load balancer                                   |
+| Auth Service     | 8081 | Login, JWT generation                                                |
+| Employee Service | 8082 | Profiles, leave balances,<br/> Team view, delegates to Leave Service |
+| Leave Service    | 8083 | Apply/approve/reject, Kafka producer, CB                             |
+| Notification Svc | 8085 | Kafka consumer, notification logs                                    |
+| Kafka (KRaft)    | 9092 | Zookeeper-free message broker                                        |
+| Kafka UI         | 8090 | Topic/message browser                                                |
+| Elasticsearch    | 9200 | Log index store                                                      |
+| Logstash         | 5044 | Log ingestion pipeline (TCP JSON)                                    |
+| Kibana           | 5601 | Log dashboards                                                       |
 
 ## Quick Start
 ```bash
