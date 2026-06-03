@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.*;
 import org.springframework.kafka.listener.ContainerProperties;
-import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
+import org.springframework.kafka.support.serializer.JsonDeserializer;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -27,7 +27,7 @@ public class KafkaConfig {
 
     @Bean
     public ConsumerFactory<String, LeaveEvent> consumerFactory() {
-        JacksonJsonDeserializer<LeaveEvent> deserializer = new JacksonJsonDeserializer<>(LeaveEvent.class);
+        JsonDeserializer<LeaveEvent> deserializer = new JsonDeserializer<>(LeaveEvent.class);
         deserializer.addTrustedPackages("com.lms.leave.messaging", "com.lms.notification.dto");
         deserializer.setUseTypeMapperForKey(false);
 
