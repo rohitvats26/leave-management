@@ -4,23 +4,27 @@ server:
 spring:
   application:
     name: api-gateway
-
   cloud:
     gateway:
-      discovery:
-        locator:
-          enabled: true
-          lower-case-service-id: true
-
-      globalcors:
-        cors-configurations:
-          '[/**]':
-            allowedOrigins: "*"
-            allowedMethods: "*"
-            allowedHeaders: "*"
-
+      server:
+        webflux:
+          observability:
+            enabled: true
+          discovery:
+            locator:
+              enabled: true
+              lower-case-service-id: true
+          globalcors:
+            cors-configurations:
+              '[/**]':
+                allowedOriginPatterns:
+                  - "*"
+                allowedMethods:
+                  - "*"
+                allowedHeaders:
+                  - "*"
     loadbalancer:
-      ribbon:
+      cache:
         enabled: false
 
 eureka:
@@ -47,6 +51,14 @@ management:
   zipkin:
     tracing:
       endpoint: http://zipkin:9411/api/v2/spans
+  observations:
+    http:
+      server:
+        requests:
+          enabled: true
+      client:
+        requests:
+          enabled: true
   endpoints:
     web:
       exposure:
