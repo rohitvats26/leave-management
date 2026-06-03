@@ -19,6 +19,7 @@ import reactor.core.publisher.Mono;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Component
@@ -72,7 +73,9 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
                                 .header("X-User-Role",     role)
                                 .header("X-User-Username", claims.get("username", String.class)))
                         .build();
-
+                for (Map.Entry<String, Object> entry : exchange.getAttributes().entrySet()) {
+                    mutated.getAttributes().putIfAbsent(entry.getKey(), entry.getValue());
+                }
                 return chain.filter(mutated);
 
             } catch (io.jsonwebtoken.ExpiredJwtException e) {
