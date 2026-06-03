@@ -31,7 +31,7 @@ eureka:
     register-with-eureka: true
     registry-fetch-interval-seconds: 5
   instance:
-    prefer-ip-address: false
+    prefer-ip-address: true
     hostname: api-gateway
     lease-renewal-interval-in-seconds: 5
     lease-expiration-duration-in-seconds: 15
