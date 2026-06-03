@@ -12,6 +12,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
@@ -25,8 +26,8 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
 
     @Value("${jwt.secret}")
     private String secret;
-
-    private static final List<String> PUBLIC = List.of("/auth/login", "/actuator", "/h2-console/**");
+    private final AntPathMatcher pathMatcher = new AntPathMatcher();
+    private static final List<String> PUBLIC_PATTERN = List.of("/auth/login", "/**/actuator/health", "/h2-console/**");
 
     public JwtAuthFilter() {
         super(Config.class);
@@ -37,7 +38,7 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
     public GatewayFilter apply(@NonNull Config config) {
         return (exchange, chain) -> {
             String path = exchange.getRequest().getPath().toString();
-            if (PUBLIC.stream().anyMatch(path::startsWith)) return chain.filter(exchange);
+            if (PUBLIC_PATTERN.stream().anyMatch(pattern -> pathMatcher.match(pattern, path))) return chain.filter(exchange);
             log.debug("JwtAuthFilter processing path: {}", path);
 
             String header = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
