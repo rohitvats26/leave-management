@@ -1,6 +1,6 @@
 # ════════════════════════════════════════════════════════════════════
 #  Leave Management System — docker-compose
-#  Spring Boot 4 | Kafka | Resilience4j | ELK Stack
+#  Spring Boot 4 | Kafka | Resilience4j | ELK Stack | Zipkin
 # ════════════════════════════════════════════════════════════════════
 
 services:
@@ -80,22 +80,18 @@ services:
       - "9092:9092"
       - "9093:9093"
     environment:
-      # KRaft — Zookeeper-free
       - KAFKA_NODE_ID=1
       - KAFKA_PROCESS_ROLES=broker,controller
-      # Listeners
       - KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
       - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
       - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
       - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
       - KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
-      # Topics auto-create
       - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
       - KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1
       - KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=1
       - KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0
       - KAFKA_NUM_PARTITIONS=1
-      # Retention
       - KAFKA_LOG_RETENTION_HOURS=24
     healthcheck:
       test: [
@@ -108,7 +104,6 @@ services:
     networks:
       - lms-network
 
-  # Optional: Kafka UI for topic/message inspection
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: kafka-ui
@@ -123,10 +118,30 @@ services:
     networks:
       - lms-network
 
+  # ── DISTRIBUTED TRACING ─────────────────────────────────────────────
+
+  zipkin:
+    image: openzipkin/zipkin:latest
+    container_name: zipkin
+    hostname: zipkin
+    ports:
+      - "9411:9411"
+    environment:
+      - STORAGE_TYPE=mem
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9411/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - lms-network
+
   # ── SERVICE DISCOVERY ───────────────────────────────────────────────
 
   eureka-server:
-    build: ./eureka-server
+    build:
+      context: .
+      dockerfile: eureka-server/Dockerfile
     container_name: eureka-server
     hostname: eureka-server
     ports:
@@ -136,8 +151,12 @@ services:
       SPRING_PROFILES_ACTIVE: docker
       LOGGING_LOGSTASH_HOST: logstash
       LOGGING_LOGSTASH_PORT: "5044"
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "1.0"
     depends_on:
       logstash:
+        condition: service_healthy
+      zipkin:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8761/actuator/health"]
@@ -164,8 +183,12 @@ services:
       JWT_SECRET: lms-super-secret-key-must-be-at-least-256-bits-long-for-hs256
       LOGGING_LOGSTASH_HOST: logstash
       LOGGING_LOGSTASH_PORT: "5044"
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "1.0"
     depends_on:
       eureka-server:
+        condition: service_healthy
+      zipkin:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8081/actuator/health"]
@@ -189,8 +212,12 @@ services:
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "false"
       LOGGING_LOGSTASH_HOST: logstash
       LOGGING_LOGSTASH_PORT: "5044"
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "1.0"
     depends_on:
       eureka-server:
+        condition: service_healthy
+      zipkin:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8082/actuator/health"]
@@ -215,12 +242,16 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       LOGGING_LOGSTASH_HOST: logstash
       LOGGING_LOGSTASH_PORT: "5044"
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "1.0"
     depends_on:
       eureka-server:
         condition: service_healthy
       kafka:
         condition: service_healthy
       employee-service:
+        condition: service_healthy
+      zipkin:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8083/actuator/health"]
@@ -245,10 +276,14 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       LOGGING_LOGSTASH_HOST: logstash
       LOGGING_LOGSTASH_PORT: "5044"
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "1.0"
     depends_on:
       kafka:
         condition: service_healthy
       eureka-server:
+        condition: service_healthy
+      zipkin:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8085/actuator/health"]
@@ -275,6 +310,8 @@ services:
       JWT_SECRET: lms-super-secret-key-must-be-at-least-256-bits-long-for-hs256
       LOGGING_LOGSTASH_HOST: logstash
       LOGGING_LOGSTASH_PORT: "5044"
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "1.0"
     depends_on:
       eureka-server:
         condition: service_healthy
@@ -285,6 +322,8 @@ services:
       leave-service:
         condition: service_healthy
       notification-service:
+        condition: service_healthy
+      zipkin:
         condition: service_healthy
     networks:
       - lms-network

@@ -1,5 +1,8 @@
 package com.lms.gateway.filter;
 
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
@@ -12,22 +15,28 @@ import reactor.core.publisher.Mono;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class LoggingFilter implements GlobalFilter, Ordered {
+
+    private final Tracer tracer;
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        long start = System.currentTimeMillis();
+        long start  = System.currentTimeMillis();
         String method = exchange.getRequest().getMethod().name();
         String path   = exchange.getRequest().getPath().toString();
-        String traceId = exchange.getRequest().getId();
 
-        log.info(">>> [{}] {} {}", traceId, method, path);
+        Span currentSpan = tracer.currentSpan();
+        String traceId = (currentSpan != null)
+                ? currentSpan.context().traceId()
+                : exchange.getRequest().getId();
+
+        log.info(">>> [traceId={}] {} {}", traceId, method, path);
 
         return chain.filter(exchange).then(Mono.fromRunnable(() -> {
-            // Spring Framework 7: getStatusCode() returns HttpStatusCode, not HttpStatus
-            HttpStatusCode status = exchange.getResponse().getStatusCode();
+            HttpStatusCode status  = exchange.getResponse().getStatusCode();
             long elapsed = System.currentTimeMillis() - start;
-            log.info("<<< [{}] {} {} | {} | {}ms", traceId, method, path, status, elapsed);
+            log.info("<<< [traceId={}] {} {} | {} | {}ms", traceId, method, path, status, elapsed);
         }));
     }
 
