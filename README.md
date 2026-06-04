@@ -15,6 +15,7 @@
 | Elasticsearch    | 9200 | Log index store                                                      |
 | Logstash         | 5044 | Log ingestion pipeline (TCP JSON)                                    |
 | Kibana           | 5601 | Log dashboards                                                       |
+| Zipkin           | 9411 | Distributed tracing                                                  |
 
 ## Quick Start
 ```bash
