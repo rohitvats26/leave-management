@@ -14,7 +14,7 @@ public class EmployeeClientFallback implements EmployeeClient {
     @Override
     public ResponseEntity<Map<String, Object>> checkBalance(UUID id, String leaveType, int days) {
         log.error("Employee service unavailable - balance check fallback");
-        return ResponseEntity.status(503).body(Map.of("sufficient", false, "fallback", true));
+        return ResponseEntity.status(503).body(Map.of("sufficient", false, "available", 0, "fallback", true));
     }
 
     @Override

@@ -41,6 +41,21 @@ public class GlobalExceptionHandler {
         return resp(HttpStatus.SERVICE_UNAVAILABLE, "DEPENDENCY_UNAVAILABLE", ex.getMessage(), req);
     }
 
+    /**
+     * Handle downstream service errors (e.g., from Feign clients).
+     * Returns the exact error response from the downstream service to the client.
+     */
+    @ExceptionHandler(DownstreamServiceException.class)
+    public ResponseEntity<ErrorResponse> downstreamError(DownstreamServiceException ex, HttpServletRequest req) {
+        ErrorResponse errorResponse = ex.getErrorResponse();
+        HttpStatus status = HttpStatus.resolve(errorResponse.getStatus());
+        if (status == null) {
+            status = HttpStatus.INTERNAL_SERVER_ERROR;
+        }
+        log.warn("[Downstream Error] {} - {} - {}", status.value(), errorResponse.getCode(), errorResponse.getMessage());
+        return ResponseEntity.status(status).body(errorResponse);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> validation(MethodArgumentNotValidException ex, HttpServletRequest req) {
         String msg = ex.getBindingResult().getFieldErrors().stream().findFirst()
