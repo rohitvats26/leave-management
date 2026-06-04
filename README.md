@@ -1,5 +1,5 @@
 # Leave Management System — Microservices
-**Spring Boot 4.0.6 · Java 21 · Kafka · Resilience4j · ELK Stack · Docker**
+**Spring Boot 3.5.14 · Java 17 · Kafka · Resilience4j · ELK Stack · Docker**
 
 ## Architecture
 | Service          | Port | Notes                                                                |
