@@ -52,6 +52,9 @@ public class GlobalExceptionHandler {
         if (status == null) {
             status = HttpStatus.INTERNAL_SERVER_ERROR;
         }
+        if(status.value() == 503) {
+            errorResponse.setMessage("service unavailable please try again letter");
+        }
         log.warn("[Downstream Error] {} - {} - {}", status.value(), errorResponse.getCode(), errorResponse.getMessage());
         return ResponseEntity.status(status).body(errorResponse);
     }

@@ -2,7 +2,7 @@ package com.lms.employee.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lms.employee.dto.ErrorResponse;
-import com.lms.leave.exception.DownstreamServiceException;
+import com.lms.employee.exception.DownstreamServiceException;
 import feign.Response;
 import feign.codec.ErrorDecoder;
 import lombok.extern.slf4j.Slf4j;
