@@ -1,6 +1,7 @@
 package com.lms.employee.exception;
 
 import com.lms.employee.dto.ErrorResponse;
+import com.lms.leave.exception.DownstreamServiceException;
 import feign.FeignException;
 import feign.RetryableException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -48,9 +49,14 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(DownstreamServiceException.class)
-    public ResponseEntity<ErrorResponse> downstream(DownstreamServiceException ex, HttpServletRequest req) {
-        HttpStatus status = resolveStatus(ex.getStatus());
-        return resp(status, ex.getCode(), ex.getMessage(), req);
+    public ResponseEntity<ErrorResponse> downstreamError(DownstreamServiceException ex, HttpServletRequest req) {
+        ErrorResponse errorResponse = ex.getErrorResponse();
+        HttpStatus status = HttpStatus.resolve(errorResponse.getStatus());
+        if (status == null) {
+            status = HttpStatus.INTERNAL_SERVER_ERROR;
+        }
+        log.warn("[Downstream Error] {} - {} - {}", status.value(), errorResponse.getCode(), errorResponse.getMessage());
+        return ResponseEntity.status(status).body(errorResponse);
     }
 
     @ExceptionHandler(RetryableException.class)

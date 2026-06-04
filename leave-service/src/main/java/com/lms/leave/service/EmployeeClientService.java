@@ -40,12 +40,17 @@ public class EmployeeClientService {
         if (response.getStatusCode().is5xxServerError()) {
             throw new ServiceUnavailableException("Unable to verify leave balance because employee service is unavailable.");
         }
-        return Boolean.TRUE.equals(response.getBody().get("sufficient"));
+        Map<String, Object> body = response.getBody();
+        return body != null && Boolean.TRUE.equals(body.get("sufficient"));
     }
 
     // Fallback — triggered when circuit is OPEN or all retries exhausted
     public boolean checkBalanceFallback(UUID employeeId, String leaveType, int days, Throwable t) {
         log.error("[CB FALLBACK] checkBalance failed for employee={}: {}", employeeId, t.getMessage());
+        // Let DownstreamServiceException propagate if it's raised by FeignErrorDecoder
+        if (t instanceof com.lms.leave.exception.DownstreamServiceException) {
+            throw (com.lms.leave.exception.DownstreamServiceException) t;
+        }
         throw new ServiceUnavailableException(
             "Employee service is currently unavailable. Cannot verify leave balance.");
     }
@@ -65,7 +70,38 @@ public class EmployeeClientService {
 
     public void deductBalanceFallback(UUID employeeId, String leaveType, int days, Throwable t) {
         log.error("[CB FALLBACK] deductBalance failed for employee={}: {}", employeeId, t.getMessage());
+        // Let DownstreamServiceException propagate if it's raised by FeignErrorDecoder
+        if (t instanceof com.lms.leave.exception.DownstreamServiceException) {
+            throw (com.lms.leave.exception.DownstreamServiceException) t;
+        }
         throw new ServiceUnavailableException(
             "Employee service is currently unavailable. Leave approval deferred.");
+    }
+
+    @CircuitBreaker(name = "employee-service", fallbackMethod = "getAvailableBalanceFallback")
+    @Retry(name = "employee-service")
+    public int getAvailableBalance(UUID employeeId, String leaveType, int days) {
+        log.debug("[CB] getAvailableBalance employeeId={} leaveType={} days={}", employeeId, leaveType, days);
+        ResponseEntity<Map<String, Object>> response =
+                employeeClient.checkBalance(employeeId, leaveType, days);
+
+        if (response.getStatusCode().is5xxServerError()) {
+            throw new ServiceUnavailableException("Unable to verify leave balance because employee service is unavailable.");
+        }
+
+        Object availableObj = response.getBody() != null ? response.getBody().get("available") : null;
+        if (availableObj instanceof Number number) {
+            return number.intValue();
+        }
+        return 0;
+    }
+
+    public int getAvailableBalanceFallback(UUID employeeId, String leaveType, int days, Throwable t) {
+        log.error("[CB FALLBACK] getAvailableBalance failed for employee={}: {}", employeeId, t.getMessage());
+        if (t instanceof com.lms.leave.exception.DownstreamServiceException) {
+            throw (com.lms.leave.exception.DownstreamServiceException) t;
+        }
+        throw new ServiceUnavailableException(
+                "Employee service is currently unavailable. Cannot verify leave balance.");
     }
 }
