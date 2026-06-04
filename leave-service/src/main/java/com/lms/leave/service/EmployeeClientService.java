@@ -1,6 +1,7 @@
 package com.lms.leave.service;
 
 import com.lms.leave.client.EmployeeClient;
+import com.lms.leave.exception.DownstreamServiceException;
 import com.lms.leave.exception.ServiceUnavailableException;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
@@ -48,8 +49,8 @@ public class EmployeeClientService {
     public boolean checkBalanceFallback(UUID employeeId, String leaveType, int days, Throwable t) {
         log.error("[CB FALLBACK] checkBalance failed for employee={}: {}", employeeId, t.getMessage());
         // Let DownstreamServiceException propagate if it's raised by FeignErrorDecoder
-        if (t instanceof com.lms.leave.exception.DownstreamServiceException) {
-            throw (com.lms.leave.exception.DownstreamServiceException) t;
+        if (t instanceof DownstreamServiceException) {
+            throw (DownstreamServiceException) t;
         }
         throw new ServiceUnavailableException(
             "Employee service is currently unavailable. Cannot verify leave balance.");
@@ -71,7 +72,7 @@ public class EmployeeClientService {
     public void deductBalanceFallback(UUID employeeId, String leaveType, int days, Throwable t) {
         log.error("[CB FALLBACK] deductBalance failed for employee={}: {}", employeeId, t.getMessage());
         // Let DownstreamServiceException propagate if it's raised by FeignErrorDecoder
-        if (t instanceof com.lms.leave.exception.DownstreamServiceException) {
+        if (t instanceof DownstreamServiceException) {
             throw (com.lms.leave.exception.DownstreamServiceException) t;
         }
         throw new ServiceUnavailableException(
