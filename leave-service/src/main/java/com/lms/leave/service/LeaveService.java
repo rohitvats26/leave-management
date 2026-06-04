@@ -28,6 +28,7 @@ public class LeaveService {
     @Transactional
     public LeaveRequestResponse applyLeave(String employeeId, ApplyLeaveRequest req) {
         UUID empId = UUID.fromString(employeeId);
+        String leaveType = req.getLeaveType().trim().toUpperCase();
 
         if (req.getEndDate().isBefore(req.getStartDate()))
             throw new ValidationException("End date must be the same as or after start date.");
@@ -39,16 +40,19 @@ public class LeaveService {
         if (!leaveRepo.findOverlapping(empId, req.getStartDate(), req.getEndDate()).isEmpty())
             throw new OverlapException("A leave request already exists for the selected date range.");
 
-        // Circuit-breaker wrapped balance check
-        boolean sufficient = employeeClientService.checkBalance(
-                empId, req.getLeaveType().toUpperCase(), req.getNumberOfDays());
-        if (!sufficient)
+        int availableBalance = employeeClientService.getAvailableBalance(empId, leaveType, req.getNumberOfDays());
+        int pendingReservedDays = leaveRepo.sumPendingDaysByEmployeeIdAndLeaveType(empId, leaveType);
+        int requestableDays = Math.max(availableBalance - pendingReservedDays, 0);
+
+        if (req.getNumberOfDays() > requestableDays) {
             throw new InsufficientBalanceException(
-                    "Insufficient " + req.getLeaveType() + " leave balance for " + req.getNumberOfDays() + " day(s).");
+                    "Insufficient " + leaveType + " leave balance. Available for new requests: "
+                            + requestableDays + ", Requested: " + req.getNumberOfDays());
+        }
 
         LeaveRequest leave = LeaveRequest.builder()
                 .employeeId(empId).managerId(req.getManagerId())
-                .leaveType(req.getLeaveType().toUpperCase())
+                .leaveType(leaveType)
                 .startDate(req.getStartDate()).endDate(req.getEndDate())
                 .numberOfDays(req.getNumberOfDays()).reason(req.getReason())
                 .status("PENDING").build();
