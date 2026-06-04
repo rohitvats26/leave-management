@@ -24,4 +24,9 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, UUID
             "AND lr.startDate <= :endDate AND lr.endDate >= :startDate")
     List<LeaveRequest> findOverlapping(@Param("empId") UUID empId,
                                        @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+
+    @Query("SELECT COALESCE(SUM(lr.numberOfDays), 0) FROM LeaveRequest lr WHERE lr.employeeId = :empId " +
+            "AND lr.leaveType = :leaveType AND lr.status = 'PENDING'")
+    int sumPendingDaysByEmployeeIdAndLeaveType(@Param("empId") UUID empId,
+                                               @Param("leaveType") String leaveType);
 }

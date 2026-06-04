@@ -86,8 +86,13 @@ public class EmployeeService {
     }
 
     public boolean hasEnoughBalance(UUID employeeId, String leaveType, int days) {
+        return getRemainingBalance(employeeId, leaveType) >= days;
+    }
+
+    public int getRemainingBalance(UUID employeeId, String leaveType) {
         return balanceRepo.findByEmployeeIdAndLeaveType(employeeId, leaveType)
-                .map(b -> b.getRemaining() >= days).orElse(false);
+                .map(LeaveBalance::getRemaining)
+                .orElse(0);
     }
 
     private Employee findById(UUID id) {

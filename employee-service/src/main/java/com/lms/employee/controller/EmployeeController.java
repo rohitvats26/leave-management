@@ -73,8 +73,10 @@ public class EmployeeController {
     public ResponseEntity<Map<String, Object>> checkBalance(@PathVariable UUID id,
                                                             @RequestParam String leaveType, @RequestParam int days) {
         validateLeaveBalanceCheckRequest(leaveType, days);
-        boolean ok = employeeService.hasEnoughBalance(id, leaveType, days);
-        return ResponseEntity.ok(Map.of("sufficient", ok));
+        String normalizedLeaveType = leaveType.trim().toUpperCase();
+        int available = employeeService.getRemainingBalance(id, normalizedLeaveType);
+        boolean ok = available >= days;
+        return ResponseEntity.ok(Map.of("sufficient", ok, "available", available));
     }
 
     private void validateLeaveBalanceCheckRequest(String leaveType, int days) {

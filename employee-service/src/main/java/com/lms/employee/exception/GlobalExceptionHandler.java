@@ -1,7 +1,6 @@
 package com.lms.employee.exception;
 
 import com.lms.employee.dto.ErrorResponse;
-import com.lms.leave.exception.DownstreamServiceException;
 import feign.FeignException;
 import feign.RetryableException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -54,6 +53,9 @@ public class GlobalExceptionHandler {
         HttpStatus status = HttpStatus.resolve(errorResponse.getStatus());
         if (status == null) {
             status = HttpStatus.INTERNAL_SERVER_ERROR;
+        }
+        if(status.value() == 503) {
+            errorResponse.setMessage("service unavailable please try again letter");
         }
         log.warn("[Downstream Error] {} - {} - {}", status.value(), errorResponse.getCode(), errorResponse.getMessage());
         return ResponseEntity.status(status).body(errorResponse);
