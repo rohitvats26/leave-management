@@ -1,6 +1,6 @@
 # ════════════════════════════════════════════════════════════════════
 #  Leave Management System — docker-compose
-#  Spring Boot 4 | Kafka | Resilience4j | ELK Stack | Zipkin
+#  Spring Boot | Kafka | Resilience4j | ELK Stack | Zipkin
 # ════════════════════════════════════════════════════════════════════
 
 services:
@@ -11,6 +11,7 @@ services:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
     container_name: elasticsearch
     hostname: elasticsearch
+    restart: unless-stopped
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
@@ -20,10 +21,11 @@ services:
     volumes:
       - elasticsearch_data:/usr/share/elasticsearch/data
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:9200/_cluster/health" ]
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
       interval: 15s
       timeout: 10s
       retries: 10
+      start_period: 30s
     networks:
       - lms-network
 
@@ -31,6 +33,7 @@ services:
     image: docker.elastic.co/logstash/logstash:8.13.0
     container_name: logstash
     hostname: logstash
+    restart: unless-stopped
     ports:
       - "5044:5044"
       - "9600:9600"
@@ -43,10 +46,11 @@ services:
       elasticsearch:
         condition: service_healthy
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:9600/_node/stats" ]
+      test: ["CMD", "curl", "-f", "http://localhost:9600/_node/stats"]
       interval: 15s
       timeout: 10s
       retries: 10
+      start_period: 30s
     networks:
       - lms-network
 
@@ -54,6 +58,7 @@ services:
     image: docker.elastic.co/kibana/kibana:8.13.0
     container_name: kibana
     hostname: kibana
+    restart: unless-stopped
     ports:
       - "5601:5601"
     environment:
@@ -63,10 +68,11 @@ services:
       elasticsearch:
         condition: service_healthy
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:5601/api/status" ]
+      test: ["CMD", "curl", "-f", "http://localhost:5601/api/status"]
       interval: 20s
       timeout: 10s
       retries: 10
+      start_period: 60s   # Kibana is slow to boot
     networks:
       - lms-network
 
@@ -76,6 +82,7 @@ services:
     image: apache/kafka:4.3.0
     container_name: kafka
     hostname: kafka
+    restart: unless-stopped
     ports:
       - "9092:9092"
       - "9093:9093"
@@ -93,20 +100,25 @@ services:
       - KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0
       - KAFKA_NUM_PARTITIONS=1
       - KAFKA_LOG_RETENTION_HOURS=24
+    volumes:
+      - kafka_data:/var/lib/kafka/data
     healthcheck:
-      test: [
-        "CMD-SHELL",
-        "./opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1",
-      ]
+      test:
+        [
+          "CMD-SHELL",
+          "./opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1",
+        ]
       interval: 15s
       timeout: 10s
       retries: 10
+      start_period: 15s
     networks:
       - lms-network
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: kafka-ui
+    restart: unless-stopped
     ports:
       - "8090:8080"
     environment:
@@ -115,6 +127,12 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/api/clusters"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
     networks:
       - lms-network
 
@@ -124,133 +142,155 @@ services:
     image: openzipkin/zipkin:latest
     container_name: zipkin
     hostname: zipkin
+    restart: unless-stopped
     ports:
       - "9411:9411"
     environment:
       - STORAGE_TYPE=mem
     healthcheck:
-      test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9411/health" ]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9411/health"]
       interval: 10s
       timeout: 5s
       retries: 10
+      start_period: 20s
     networks:
       - lms-network
+
+  # ── DATABASES ───────────────────────────────────────────────────────
 
   h2-auth:
     container_name: h2-auth
     image: oscarfonts/h2
+    restart: unless-stopped
     ports:
-      - "1521:1521"   # H2 TCP port
+      - "1521:1521"
       - "8281:81"
     volumes:
       - h2-data-1:/opt/h2-data
     environment:
       H2_OPTIONS: -ifNotExists
     healthcheck:
-      test: [ "CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/1521'" ]
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/1521'"]
       interval: 10s
-      timeout: 5s         # fail if no response in 5 seconds
-      retries: 10         # retry 10 times before marking unhealthy
-      start_period: 15s   # give H2 15 seconds to boot before checking
+      timeout: 5s
+      retries: 10
+      start_period: 15s
     networks:
       - lms-network
+
   auth-db-init:
     image: oscarfonts/h2
     container_name: auth-db-init
     depends_on:
       h2-auth:
-        condition: service_healthy   # waits until H2 is ready
+        condition: service_healthy
     volumes:
-      - ./scripts:/scripts           # mount local sql scripts folder
+      - ./scripts:/scripts
     entrypoint:
       - sh
       - -c
-      -
+      - |
         echo 'Running auth-data.sql...' &&
-        java -cp /opt/h2/bin/h2*.jar org.h2.tools.RunScript -url 'jdbc:h2:tcp://h2-auth:1521/authdb' -user sa -password 'password' -script /scripts/auth-data.sql &&
+        java -cp /opt/h2/bin/h2*.jar org.h2.tools.RunScript \
+          -url 'jdbc:h2:tcp://h2-auth:1521/authdb' \
+          -user sa -password 'password' \
+          -script /scripts/auth-data.sql &&
         echo 'Database initialization complete!'
-    restart: "no"                    # ← CRITICAL: never restarts
+    restart: "no"
     networks:
       - lms-network
 
   h2-emp:
     container_name: h2-emp
     image: oscarfonts/h2
+    restart: unless-stopped
     ports:
-      - "1522:1521"   # H2 TCP port
+      - "1522:1521"
       - "8282:81"
     volumes:
       - h2-data-2:/opt/h2-data
     environment:
       H2_OPTIONS: -ifNotExists
     healthcheck:
-      test: [ "CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/1521'" ]
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/1521'"]
       interval: 10s
-      timeout: 5s         # fail if no response in 5 seconds
-      retries: 10         # retry 10 times before marking unhealthy
-      start_period: 15s   # give H2 15 seconds to boot before checking
+      timeout: 5s
+      retries: 10
+      start_period: 15s
     networks:
       - lms-network
+
   emp-db-init:
     image: oscarfonts/h2
     container_name: emp-db-init
     depends_on:
       h2-emp:
-        condition: service_healthy   # waits until H2 is ready
+        condition: service_healthy
     volumes:
-      - ./scripts:/scripts           # mount local sql scripts folder
+      - ./scripts:/scripts
     entrypoint:
       - sh
       - -c
-      -
+      - |
         echo 'Running emp-data.sql...' &&
-        java -cp /opt/h2/bin/h2*.jar org.h2.tools.RunScript -url 'jdbc:h2:tcp://h2-emp:1521/empdb' -user sa -password 'password' -script /scripts/emp-data.sql &&
+        java -cp /opt/h2/bin/h2*.jar org.h2.tools.RunScript \
+          -url 'jdbc:h2:tcp://h2-emp:1521/empdb' \
+          -user sa -password 'password' \
+          -script /scripts/emp-data.sql &&
         echo 'Database initialization complete!'
-    restart: "no"                    # ← CRITICAL: never restarts
+    restart: "no"
     networks:
       - lms-network
+
   h2-leave:
     container_name: h2-leave
     image: oscarfonts/h2
+    restart: unless-stopped
     ports:
-      - "1523:1521"   # H2 TCP port
+      - "1523:1521"
       - "8283:81"
     volumes:
       - h2-data-3:/opt/h2-data
     environment:
       H2_OPTIONS: -ifNotExists
     healthcheck:
-      test: [ "CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/1521'" ]
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/1521'"]
       interval: 10s
-      timeout: 5s         # fail if no response in 5 seconds
-      retries: 10         # retry 10 times before marking unhealthy
-      start_period: 15s   # give H2 15 seconds to boot before checking
+      timeout: 5s
+      retries: 10
+      start_period: 15s
     networks:
       - lms-network
+
   leave-db-init:
     image: oscarfonts/h2
     container_name: leave-db-init
     depends_on:
       h2-leave:
-        condition: service_healthy   # waits until H2 is ready
+        condition: service_healthy
     volumes:
-      - ./scripts:/scripts           # mount local sql scripts folder
+      - ./scripts:/scripts
     entrypoint:
       - sh
       - -c
-      -
+      - |
         echo 'Running leave-data.sql...' &&
-        java -cp /opt/h2/bin/h2*.jar org.h2.tools.RunScript -url 'jdbc:h2:tcp://h2-emp:1521/leavedb' -user sa -password 'password' -script /scripts/leave-data.sql &&
+        java -cp /opt/h2/bin/h2*.jar org.h2.tools.RunScript \
+          -url 'jdbc:h2:tcp://h2-leave:1521/leavedb' \
+          -user sa -password 'password' \
+          -script /scripts/leave-data.sql &&
         echo 'Database initialization complete!'
-    restart: "no"                    # ← CRITICAL: never restarts
+    restart: "no"
     networks:
       - lms-network
+
   # ── SERVICE DISCOVERY ───────────────────────────────────────────────
 
   eureka-server:
     build: ./eureka-server
     container_name: eureka-server
     hostname: eureka-server
+    restart: unless-stopped
     ports:
       - "8761:8761"
     environment:
@@ -262,10 +302,11 @@ services:
       logstash:
         condition: service_healthy
     healthcheck:
-      test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8761/actuator/health" ]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8761/actuator/health"]
       interval: 10s
       timeout: 10s
       retries: 10
+      start_period: 30s
     networks:
       - lms-network
 
@@ -274,10 +315,11 @@ services:
   auth-service:
     build: ./auth-service
     hostname: auth-service
+    restart: unless-stopped
     deploy:
       replicas: 2
     ports:
-      - "8011-8020:8010"
+      - "8011-8020:8011"
     environment:
       SPRING_APPLICATION_NAME: auth-service
       SPRING_PROFILES_ACTIVE: docker
@@ -288,9 +330,9 @@ services:
       LOGGING_LOGSTASH_PORT: "5044"
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
       MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "1.0"
-      SPRING_DATASOURCE_URL: jdbc:h2:tcp://h2-emp:1521/authdb
-      SPRING_JPA_HIBERNATE_DDL_AUTO: validate   # no schema changes by app
-      SPRING_SQL_INIT_MODE: never               # no emp-data.sql from app
+      SPRING_DATASOURCE_URL: jdbc:h2:tcp://h2-auth:1521/authdb
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_SQL_INIT_MODE: never
     depends_on:
       auth-db-init:
         condition: service_completed_successfully
@@ -299,16 +341,18 @@ services:
       zipkin:
         condition: service_healthy
     healthcheck:
-      test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8081/actuator/health" ]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8081/actuator/health"]
       interval: 10s
       timeout: 10s
       retries: 10
+      start_period: 30s
     networks:
       - lms-network
 
   employee-service:
     build: ./employee-service
     hostname: employee-service
+    restart: unless-stopped
     deploy:
       replicas: 3
     ports:
@@ -323,8 +367,8 @@ services:
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
       MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "1.0"
       SPRING_DATASOURCE_URL: jdbc:h2:tcp://h2-emp:1521/empdb
-      SPRING_JPA_HIBERNATE_DDL_AUTO: validate   # no schema changes by app
-      SPRING_SQL_INIT_MODE: never               # no emp-data.sql from app
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_SQL_INIT_MODE: never
     depends_on:
       emp-db-init:
         condition: service_completed_successfully
@@ -333,16 +377,18 @@ services:
       zipkin:
         condition: service_healthy
     healthcheck:
-      test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8082/actuator/health" ]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8082/actuator/health"]
       interval: 10s
       timeout: 10s
       retries: 10
+      start_period: 30s
     networks:
       - lms-network
 
   leave-service:
     build: ./leave-service
     hostname: leave-service
+    restart: unless-stopped
     deploy:
       replicas: 3
     ports:
@@ -357,9 +403,9 @@ services:
       LOGGING_LOGSTASH_PORT: "5044"
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
       MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "1.0"
-      SPRING_DATASOURCE_URL: jdbc:h2:tcp://h2-emp:1521/leavedb
-      SPRING_JPA_HIBERNATE_DDL_AUTO: validate   # no schema changes by app
-      SPRING_SQL_INIT_MODE: never               # no emp-data.sql from app
+      SPRING_DATASOURCE_URL: jdbc:h2:tcp://h2-leave:1521/leavedb
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_SQL_INIT_MODE: never
     depends_on:
       leave-db-init:
         condition: service_completed_successfully
@@ -372,10 +418,11 @@ services:
       zipkin:
         condition: service_healthy
     healthcheck:
-      test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8083/actuator/health" ]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8083/actuator/health"]
       interval: 10s
       timeout: 10s
       retries: 10
+      start_period: 30s
     networks:
       - lms-network
 
@@ -383,6 +430,7 @@ services:
     build: ./notification-service
     container_name: notification-service
     hostname: notification-service
+    restart: unless-stopped
     ports:
       - "8085:8085"
     environment:
@@ -390,7 +438,7 @@ services:
       SPRING_PROFILES_ACTIVE: docker
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       EUREKA_INSTANCE_HOSTNAME: notification-service
-      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "false"
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       LOGGING_LOGSTASH_HOST: logstash
       LOGGING_LOGSTASH_PORT: "5044"
@@ -401,13 +449,16 @@ services:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
+      logstash:
+        condition: service_healthy
       zipkin:
         condition: service_healthy
     healthcheck:
-      test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8085/actuator/health" ]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8085/actuator/health"]
       interval: 10s
       timeout: 10s
       retries: 10
+      start_period: 30s
     networks:
       - lms-network
 
@@ -417,10 +468,10 @@ services:
     build: ./api-gateway
     container_name: api-gateway
     hostname: api-gateway
+    restart: unless-stopped
     ports:
       - "8080:8080"
     environment:
-      SPRING_APPLICATION_NAME: api-gateway
       SPRING_PROFILES_ACTIVE: docker
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       EUREKA_INSTANCE_HOSTNAME: api-gateway
@@ -441,8 +492,16 @@ services:
         condition: service_healthy
       notification-service:
         condition: service_healthy
+      logstash:
+        condition: service_healthy
       zipkin:
         condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/actuator/health" ]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
     networks:
       - lms-network
 
@@ -454,6 +513,7 @@ volumes:
   h2-data-1:
   h2-data-2:
   h2-data-3:
+
 networks:
   lms-network:
     driver: bridge
