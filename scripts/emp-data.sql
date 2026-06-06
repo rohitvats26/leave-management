@@ -1,3 +1,41 @@
+-- =====================================================
+-- Employees
+-- =====================================================
+DROP TABLE IF EXISTS employees;
+
+CREATE TABLE employees
+(
+    id         UUID PRIMARY KEY,
+    first_name VARCHAR(100) NOT NULL,
+    last_name  VARCHAR(100) NOT NULL,
+    email      VARCHAR(255) NOT NULL UNIQUE,
+    username   VARCHAR(100) NOT NULL UNIQUE,
+    department VARCHAR(100),
+    manager_id UUID,
+    role       VARCHAR(50)  NOT NULL,
+    enabled    BOOLEAN      NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =====================================================
+-- Leave Balances
+-- =====================================================
+
+DROP TABLE IF EXISTS leave_balances;
+
+CREATE TABLE IF NOT EXISTS leave_balances
+(
+    id          UUID PRIMARY KEY,
+    employee_id UUID        NOT NULL,
+    leave_type  VARCHAR(20) NOT NULL,
+    allocated   INTEGER     NOT NULL DEFAULT 0,
+    used        INTEGER     NOT NULL DEFAULT 0,
+
+    CONSTRAINT uk_employee_leave_type
+    UNIQUE (employee_id, leave_type)
+    );
+
+
 -- ── Employees ────────────────────────────────────────────────────
 INSERT INTO employees (id, first_name, last_name, email, username, department, manager_id, role, enabled, created_at) VALUES
   ('550e8400-e29b-41d4-a716-446655440001',
