@@ -30,33 +30,35 @@ public class EmployeeController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<EmployeeResponse> getEmployee(@PathVariable UUID id,
+    public ResponseEntity<EmployeeResponse> getEmployee(@PathVariable String id,
                                                         @RequestHeader("X-User-Id") String userId,
                                                         @RequestHeader("X-User-Role") String role) {
-        if ("ROLE_EMPLOYEE".equals(role) && !userId.equals(id.toString())) {
+        UUID employeeId = parseId(id);
+        if ("ROLE_EMPLOYEE".equals(role) && !userId.equals(employeeId.toString())) {
             throw new ForbiddenException(EMPLOYEE_ACCESS_REQUIRED);
         }
-        return ResponseEntity.ok(employeeService.getEmployee(id));
+        return ResponseEntity.ok(employeeService.getEmployee(employeeId));
     }
 
     @GetMapping("/{id}/balance")
-    public ResponseEntity<Map<String, Object>> getBalance(@PathVariable UUID id,
+    public ResponseEntity<Map<String, Object>> getBalance(@PathVariable String id,
                                                           @RequestHeader("X-User-Id") String userId,
                                                           @RequestHeader("X-User-Role") String role) {
-        if ("ROLE_EMPLOYEE".equals(role) && !userId.equals(id.toString())) {
+        UUID employeeId = parseId(id);
+        if ("ROLE_EMPLOYEE".equals(role) && !userId.equals(employeeId.toString())) {
             throw new ForbiddenException(EMPLOYEE_ACCESS_REQUIRED);
         }
-        List<LeaveBalanceDto> balances = employeeService.getBalance(id);
+        List<LeaveBalanceDto> balances = employeeService.getBalance(employeeId);
         Map<String, Object> resp = new LinkedHashMap<>();
-        resp.put("employeeId", id);
+        resp.put("employeeId", employeeId);
         resp.put("balances", balances);
         return ResponseEntity.ok(resp);
     }
 
     @PutMapping("/{id}/balance/deduct")
-    public ResponseEntity<Void> deductBalance(@PathVariable UUID id,
+    public ResponseEntity<Void> deductBalance(@PathVariable String id,
                                               @Valid @RequestBody DeductBalanceRequest req) {
-        employeeService.deductBalance(id, req.getLeaveType(), req.getDays());
+        employeeService.deductBalance(parseId(id), req.getLeaveType(), req.getDays());
         return ResponseEntity.noContent().build();
     }
 
@@ -70,13 +72,21 @@ public class EmployeeController {
     }
 
     @GetMapping("/{id}/balance/check")
-    public ResponseEntity<Map<String, Object>> checkBalance(@PathVariable UUID id,
+    public ResponseEntity<Map<String, Object>> checkBalance(@PathVariable String id,
                                                             @RequestParam String leaveType, @RequestParam int days) {
         validateLeaveBalanceCheckRequest(leaveType, days);
         String normalizedLeaveType = leaveType.trim().toUpperCase();
-        int available = employeeService.getRemainingBalance(id, normalizedLeaveType);
+        int available = employeeService.getRemainingBalance(parseId(id), normalizedLeaveType);
         boolean ok = available >= days;
         return ResponseEntity.ok(Map.of("sufficient", ok, "available", available));
+    }
+
+    private UUID parseId(String id) {
+        try {
+            return UUID.fromString(id);
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Invalid id");
+        }
     }
 
     private void validateLeaveBalanceCheckRequest(String leaveType, int days) {

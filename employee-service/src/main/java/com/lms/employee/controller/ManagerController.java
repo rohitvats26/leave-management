@@ -43,25 +43,25 @@ public class ManagerController {
     }
 
     @PostMapping("/leaves/{id}/approve")
-    public ResponseEntity<?> approve(@PathVariable UUID id,
+    public ResponseEntity<?> approve(@PathVariable String id,
                                      @Valid @RequestBody(required = false) ApproveRejectRequest req,
                                      @RequestHeader("X-User-Id") String managerId,
                                      @RequestHeader("X-User-Role") String role) {
         if (!"ROLE_MANAGER".equals(role)) {
             throw new ForbiddenException(MANAGER_ACCESS_REQUIRED);
         }
-        return leaveClient.approveLeave(id, req, managerId, role);
+        return leaveClient.approveLeave(parseId(id), req, managerId, role);
     }
 
     @PostMapping("/leaves/{id}/reject")
-    public ResponseEntity<?> reject(@PathVariable UUID id,
+    public ResponseEntity<?> reject(@PathVariable String id,
                                     @Valid @RequestBody ApproveRejectRequest req,
                                     @RequestHeader("X-User-Id") String managerId,
                                     @RequestHeader("X-User-Role") String role) {
         if (!"ROLE_MANAGER".equals(role)) {
             throw new ForbiddenException(MANAGER_ACCESS_REQUIRED);
         }
-        return leaveClient.rejectLeave(id, req, managerId, role);
+        return leaveClient.rejectLeave(parseId(id), req, managerId, role);
     }
 
     @GetMapping("/team/employees")
@@ -79,6 +79,14 @@ public class ManagerController {
         }
         if (size <= 0) {
             throw new IllegalArgumentException("size must be greater than 0");
+        }
+    }
+
+    private UUID parseId(String id) {
+        try {
+            return UUID.fromString(id);
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Invalid id");
         }
     }
 }

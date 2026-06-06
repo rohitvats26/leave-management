@@ -2,6 +2,7 @@ package com.lms.leave.controller;
 
 import com.lms.leave.dto.*;
 import com.lms.leave.exception.ForbiddenException;
+import com.lms.leave.exception.ValidationException;
 import com.lms.leave.service.LeaveService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -43,9 +44,9 @@ public class LeaveController {
     }
 
     @PutMapping("/{id}/cancel")
-    public ResponseEntity<LeaveRequestResponse> cancel(@PathVariable UUID id,
+    public ResponseEntity<LeaveRequestResponse> cancel(@PathVariable String id,
                                                        @RequestHeader("X-User-Id") String userId) {
-        return ResponseEntity.ok(leaveService.cancel(id, userId));
+        return ResponseEntity.ok(leaveService.cancel(parseId(id), userId));
     }
 
     @GetMapping({"/team/{managerId}", "/manager/{managerId}"})
@@ -62,25 +63,33 @@ public class LeaveController {
     }
 
     @PutMapping("/{id}/approve")
-    public ResponseEntity<LeaveRequestResponse> approve(@PathVariable UUID id,
+    public ResponseEntity<LeaveRequestResponse> approve(@PathVariable String id,
                                                         @Valid @RequestBody(required = false) ApproveRejectRequest req,
                                                         @RequestHeader("X-User-Id") String managerId,
                                                         @RequestHeader("X-User-Role") String role) {
         if (!"ROLE_MANAGER".equals(role)) {
             throw new ForbiddenException(MANAGER_ACCESS_REQUIRED);
         }
-        return ResponseEntity.ok(leaveService.approve(id, managerId, req));
+        return ResponseEntity.ok(leaveService.approve(parseId(id), managerId, req));
     }
 
     @PutMapping("/{id}/reject")
-    public ResponseEntity<LeaveRequestResponse> reject(@PathVariable UUID id,
+    public ResponseEntity<LeaveRequestResponse> reject(@PathVariable String id,
                                                        @Valid @RequestBody ApproveRejectRequest req,
                                                        @RequestHeader("X-User-Id") String managerId,
                                                        @RequestHeader("X-User-Role") String role) {
         if (!"ROLE_MANAGER".equals(role)) {
             throw new ForbiddenException(MANAGER_ACCESS_REQUIRED);
         }
-        return ResponseEntity.ok(leaveService.reject(id, managerId, req));
+        return ResponseEntity.ok(leaveService.reject(parseId(id), managerId, req));
+    }
+
+    private UUID parseId(String id) {
+        try {
+            return UUID.fromString(id);
+        } catch (IllegalArgumentException ex) {
+            throw new ValidationException("Invalid id");
+        }
     }
 
     private void validatePageRequest(int page, int size) {

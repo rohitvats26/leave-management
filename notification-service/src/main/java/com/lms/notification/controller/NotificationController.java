@@ -27,18 +27,28 @@ public class NotificationController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<NotificationLog> getById(@PathVariable UUID id) {
-        NotificationLog notification = repo.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Notification not found: " + id));
+    public ResponseEntity<NotificationLog> getById(@PathVariable String id) {
+        UUID notificationId = parseId(id);
+        NotificationLog notification = repo.findById(notificationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Notification not found: " + notificationId));
         return ResponseEntity.ok(notification);
     }
 
     @PutMapping("/{id}/read")
-    public ResponseEntity<NotificationLog> markRead(@PathVariable UUID id) {
-        NotificationLog notification = repo.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Notification not found: " + id));
+    public ResponseEntity<NotificationLog> markRead(@PathVariable String id) {
+        UUID notificationId = parseId(id);
+        NotificationLog notification = repo.findById(notificationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Notification not found: " + notificationId));
         notification.setRead(true);
         return ResponseEntity.ok(repo.save(notification));
+    }
+
+    private UUID parseId(String id) {
+        try {
+            return UUID.fromString(id);
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Invalid id");
+        }
     }
 
     private void validatePageRequest(int page, int size) {
