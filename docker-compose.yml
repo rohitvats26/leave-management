@@ -288,7 +288,7 @@ services:
 
   eureka-server:
     build: ./eureka-server
-    image: lms-eureka-server:latest
+    image: rohitvats26/lms-eureka-server:latest
     container_name: eureka-server
     hostname: eureka-server
     restart: unless-stopped
@@ -315,7 +315,7 @@ services:
 
   auth-service:
     build: ./auth-service
-    image: lms-auth-service:latest
+    image: rohitvats26/lms-auth-service:latest
     hostname: auth-service
     restart: unless-stopped
     deploy:
@@ -353,7 +353,7 @@ services:
 
   employee-service:
     build: ./employee-service
-    image: lms-employee-service:latest
+    image: rohitvats26/lms-employee-service:latest
     hostname: employee-service
     restart: unless-stopped
     deploy:
@@ -390,7 +390,7 @@ services:
 
   leave-service:
     build: ./leave-service
-    image: lms-leave-service:latest
+    image: rohitvats26/lms-leave-service:latest
     hostname: leave-service
     restart: unless-stopped
     deploy:
@@ -432,7 +432,7 @@ services:
 
   notification-service:
     build: ./notification-service
-    image: lms-notification-service:latest
+    image: rohitvats26/lms-notification-service:latest
     container_name: notification-service
     hostname: notification-service
     restart: unless-stopped
@@ -471,7 +471,7 @@ services:
 
   api-gateway:
     build: ./api-gateway
-    image: lms-api-gateway:latest
+    image: rohitvats26/lms-api-gateway:latest
     container_name: api-gateway
     hostname: api-gateway
     restart: unless-stopped
