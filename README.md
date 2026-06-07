@@ -2,20 +2,20 @@
 **Spring Boot 3.5.14 · Java 17 · Kafka · Resilience4j · ELK Stack · Docker**
 
 ## Architecture
-| Service          | Port | Notes                                                                |
-|------------------|------|----------------------------------------------------------------------|
-| Eureka Server    | 8761 | Service discovery                                                    |
-| API Gateway      | 8080 | JWT filter, routing, load balancer                                   |
-| Auth Service     | 8081 | Login, JWT generation                                                |
-| Employee Service | 8082 | Profiles, leave balances,<br/> Team view, delegates to Leave Service |
-| Leave Service    | 8083 | Apply/approve/reject, Kafka producer, CB                             |
-| Notification Svc | 8085 | Kafka consumer, notification logs                                    |
-| Kafka (KRaft)    | 9092 | Zookeeper-free message broker                                        |
-| Kafka UI         | 8090 | Topic/message browser                                                |
-| Elasticsearch    | 9200 | Log index store                                                      |
-| Logstash         | 5044 | Log ingestion pipeline (TCP JSON)                                    |
-| Kibana           | 5601 | Log dashboards                                                       |
-| Zipkin           | 9411 | Distributed tracing                                                  |
+| Service              | Port | Notes                                                                |
+|----------------------|------|----------------------------------------------------------------------|
+| Eureka Server        | 8761 | Service discovery                                                    |
+| API Gateway          | 8080 | JWT filter, routing, load balancer                                   |
+| Auth Service         | 8081 | Login, JWT generation                                                |
+| Employee Service     | 8082 | Profiles, leave balances,<br/> Team view, delegates to Leave Service |
+| Leave Service        | 8083 | Apply/approve/reject, Kafka producer, CB                             |
+| Notification Service | 8085 | Kafka consumer, notification logs                                    |
+| Kafka (KRaft)        | 9092 | Zookeeper-free message broker                                        |
+| Kafka UI             | 8090 | Topic/message browser                                                |
+| Elasticsearch        | 9200 | Log index store                                                      |
+| Logstash             | 5044 | Log ingestion pipeline (TCP JSON)                                    |
+| Kibana               | 5601 | Log dashboards                                                       |
+| Zipkin               | 9411 | Distributed tracing                                                  |
 
 ## Quick Start
 ```bash
@@ -43,10 +43,11 @@ All services start in dependency order (~3 min first run, ~90s warm rebuild).
 
 ## Kibana Setup (first run)
 1. Open http://localhost:5601
-2. Go to Stack Management → Index Patterns
-3. Create pattern: `lms-*`
-4. Set `@timestamp` as time field
-5. Go to Discover → select `lms-*` to view all service logs
+2. Go to Stack Management → Data Views → Create data view
+3. Name: "leave-management-logs" (or any name you prefer)
+4. Create pattern: `lms-*`
+5. Set `@timestamp` as time field
+6. Go to Discover → select `lms-*` to view all service logs
 
 ## Kafka Topics
 | Topic           | Producer      | Consumer             |
@@ -116,3 +117,5 @@ All services return this consistent JSON payload:
   "traceId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
 }
 ```
+
+### Demo Link: https://drive.google.com/file/d/1FYSMN8PhfnH8qEv2Cwiokj5A5JgpjSvO/view?usp=sharing
