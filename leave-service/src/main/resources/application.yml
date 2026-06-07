@@ -69,6 +69,8 @@ management:
   tracing:
     sampling:
       probability: 1.0
+    baggage:
+      enabled: true
   zipkin:
     tracing:
       endpoint: http://zipkin:9411/api/v2/spans
@@ -88,5 +90,4 @@ logging:
     com.lms: INFO
     io.github.resilience4j: DEBUG
     org.springframework.cloud.openfeign: DEBUG
-    com.netflix.discovery: DEBUG
     org.springframework.cloud.loadbalancer: DEBUG

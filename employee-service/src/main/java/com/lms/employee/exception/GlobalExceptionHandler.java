@@ -55,7 +55,7 @@ public class GlobalExceptionHandler {
             status = HttpStatus.INTERNAL_SERVER_ERROR;
         }
         if(status.value() == 503) {
-            errorResponse.setMessage("service unavailable please try again letter");
+            errorResponse.setMessage("Our services are temporarily unavailable. Please try again after some time.");
         }
         log.warn("[Downstream Error] {} - {} - {}", status.value(), errorResponse.getCode(), errorResponse.getMessage());
         return ResponseEntity.status(status).body(errorResponse);
@@ -64,8 +64,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(RetryableException.class)
     public ResponseEntity<ErrorResponse> dependencyUnavailable(RetryableException ex, HttpServletRequest req) {
         log.warn("Dependency unavailable: {}", ex.getMessage());
-        return resp(HttpStatus.SERVICE_UNAVAILABLE, "DEPENDENCY_UNAVAILABLE",
-                "Dependent service is temporarily unavailable", req);
+        return resp(HttpStatus.SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE",
+                "Our services are temporarily unavailable. Please try again after some time.", req);
     }
 
     @ExceptionHandler(FeignException.class)
